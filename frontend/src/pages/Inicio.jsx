@@ -21,7 +21,7 @@ function AuthAccess({ onNavigate }) {
   return (
     <AuthPageLayout
       title="Ingreso administrativo"
-      subtitle="Ingresa con tu correo y clave de administrador para revisar solicitudes, padrón y pagos."
+      subtitle="Ingresa con tu correo y clave de administrador para revisar solicitudes, padron y pagos."
     >
       <LoginAuth
         onNavigate={onNavigate}

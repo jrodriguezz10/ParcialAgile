@@ -242,15 +242,15 @@ export function UserDashboard({ token, onLogout }) {
           compact
           name={user?.full_name || "Solicitante"}
           subtitle={`DNI ${user?.dni || "--------"}`}
-          detail={form.profession || "Profesión pendiente"}
+          detail={form.profession || "Profesion pendiente"}
           image={application?.photo_url}
           badges={[application?.status, member?.status].filter(Boolean)}
         />
       }
       navItems={USER_NAV_ITEMS}
       summary={[
-        { icon: ClipboardCheck, label: "Trámite", value: APP_STATUS[application?.status] || "Sin solicitud" },
-        { icon: ShieldCheck, label: "Condición", value: MEMBER_STATUS[member?.status] || "No colegiado" },
+        { icon: ClipboardCheck, label: "Tramite", value: APP_STATUS[application?.status] || "Sin solicitud" },
+        { icon: ShieldCheck, label: "Condicion", value: MEMBER_STATUS[member?.status] || "No colegiado" },
         {
           icon: WalletCards,
           label: "Mensualidad",

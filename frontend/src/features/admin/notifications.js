@@ -29,7 +29,7 @@ export function buildAdminNotifications({
       id: "observed-applications",
       readKey: `observed-applications:${idsSignature(observedApps)}`,
       title: `${observedApps.length} solicitud(es) observada(s)`,
-      message: "Revisa si el interesado ya corrigio documentos.",
+      message: "Revisa si ya corrigieron los documentos.",
       meta: "Abrir Solicitudes",
       onClick: () => openApplications("OBSERVADO"),
     });

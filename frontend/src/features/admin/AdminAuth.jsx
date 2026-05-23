@@ -55,7 +55,7 @@ export function AdminAuth({ onAuthenticated }) {
         {loading ? "Ingresando..." : "Ingresar"}
       </Button>
       <Link className="text-link" to="/">
-        Ir al portal del interesado
+        Ir al portal de colegiatura
       </Link>
     </form>
   );
