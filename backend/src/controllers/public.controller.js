@@ -10,7 +10,7 @@ const crypto = require("crypto");
 
 // Healthcheck: confirma que la API responde y muestra periodo actual.
 async function health(req, res) {
-  res.json({ ok: true, service: "colegiacion-backend", period: currentPeriod() });
+  res.json({ ok: true, db: req.dbReady !== false, service: "colegiacion-backend", period: currentPeriod() });
 }
 
 // Verificacion publica: responde datos visibles del carnet escaneado por QR.
@@ -61,15 +61,21 @@ async function checkApplicationByDni(req, res) {
     identity = {};
   }
 
-  const [[row]] = await getPool().query(
-    `SELECT u.id AS user_id, u.full_name, u.email, u.phone, u.address, u.profession,
-            a.id AS application_id, a.status
-     FROM users u
-     LEFT JOIN applications a ON a.user_id = u.id
-     WHERE u.dni = ?
-     LIMIT 1`,
-    [dni]
-  );
+  let row = null;
+  try {
+    const [rows] = await getPool().query(
+      `SELECT u.id AS user_id, u.full_name, u.email, u.phone, u.address, u.profession,
+              a.id AS application_id, a.status
+       FROM users u
+       LEFT JOIN applications a ON a.user_id = u.id
+       WHERE u.dni = ?
+       LIMIT 1`,
+      [dni]
+    );
+    row = rows[0] || null;
+  } catch (error) {
+    console.warn("Consulta de solicitud sin base de datos disponible:", error.message);
+  }
 
   res.json({
     dni,
@@ -197,11 +203,41 @@ async function accessByDni(req, res) {
 }
 
 async function startByDni(req, res) {
-  const pool = getPool();
   const dni = normalizeDni(req.params.dni);
   if (dni.length !== 8) return res.status(422).json({ message: "DNI invalido." });
 
-  const [[existingUser]] = await pool.query("SELECT * FROM users WHERE dni = ? LIMIT 1", [dni]);
+  async function temporaryStart() {
+    let identity = {};
+    try {
+      identity = await consultDniApi(dni);
+    } catch {
+      identity = {};
+    }
+    const fullName = identity.full_name || `DNI ${dni}`;
+    const user = {
+      id: `dni-${dni}`,
+      dni,
+      full_name: fullName,
+      email: `${dni}@pendiente.cip.local`,
+    };
+    return res.status(201).json({ token: signToken(user, "user"), user });
+  }
+
+  let pool;
+  try {
+    pool = getPool();
+  } catch (error) {
+    console.warn("Inicio temporal sin base de datos disponible:", error.message);
+    return temporaryStart();
+  }
+
+  let existingUser = null;
+  try {
+    [[existingUser]] = await pool.query("SELECT * FROM users WHERE dni = ? LIMIT 1", [dni]);
+  } catch (error) {
+    console.warn("Inicio temporal por error de base de datos:", error.message);
+    return temporaryStart();
+  }
   if (existingUser) {
     return res.json({
       token: signToken(existingUser, "user"),

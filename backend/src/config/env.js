@@ -4,7 +4,7 @@ const path = require("path");
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const backendRoot = path.resolve(__dirname, "../..");
-const uploadRoot = path.join(backendRoot, "uploads");
+const uploadRoot = process.env.VERCEL ? path.join("/tmp", "uploads") : path.join(backendRoot, "uploads");
 const applicationUploadDir = path.join(uploadRoot, "applications");
 
 const corsOrigins = (process.env.CORS_ORIGIN || "http://localhost:3001,http://localhost:3002,http://localhost:5173")

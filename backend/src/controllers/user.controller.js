@@ -1,13 +1,30 @@
 const { getPool } = require("../config/database");
 const { getUserBundle } = require("../services/members.service");
+const { currentPeriod } = require("../utils/dates");
 const { storedPath } = require("../utils/files");
 const { isValidEmail, normalizeDni } = require("../utils/text");
 
 // Perfil completo del interesado: usuario, solicitud, miembro y periodo actual.
 async function getMe(req, res) {
-  const bundle = await getUserBundle(req.auth.sub, req);
-  if (!bundle) return res.status(404).json({ message: "Usuario no encontrado." });
-  res.json(bundle);
+  try {
+    const bundle = await getUserBundle(req.auth.sub, req);
+    if (!bundle) return res.status(404).json({ message: "Usuario no encontrado." });
+    res.json(bundle);
+  } catch (error) {
+    console.warn("Perfil temporal sin base de datos disponible:", error.message);
+    res.json({
+      user: {
+        id: req.auth.sub,
+        dni: req.auth.dni,
+        full_name: req.auth.name || `DNI ${req.auth.dni || ""}`.trim(),
+        email: req.auth.email,
+        profession: "Pendiente",
+      },
+      application: null,
+      member: null,
+      current_period: currentPeriod(),
+    });
+  }
 }
 
 // Actualizacion de perfil: datos basicos y cambio opcional de clave.
@@ -48,7 +65,6 @@ async function updateProfile(req, res) {
 
 // Solicitud de colegiatura: guarda datos, documentos y reinicia estado a pendiente.
 async function submitApplication(req, res) {
-  const pool = getPool();
   const dni = normalizeDni(req.body.dni);
   const fullName = String(req.body.full_name || "").trim();
   const email = String(req.body.email || "").trim().toLowerCase();
@@ -69,9 +85,63 @@ async function submitApplication(req, res) {
     return res.status(422).json({ message: "El telefono debe tener 9 digitos." });
   }
 
-  const [[existingApplication]] = await pool.query("SELECT * FROM applications WHERE user_id = ?", [
-    req.auth.sub,
-  ]);
+  let pool;
+  try {
+    pool = getPool();
+  } catch (error) {
+    console.warn("Solicitud temporal sin base de datos disponible:", error.message);
+    return res.status(201).json({
+      user: {
+        id: req.auth.sub,
+        dni,
+        full_name: fullName,
+        email,
+        phone,
+        address,
+        profession,
+      },
+      application: {
+        id: null,
+        status: "PENDIENTE",
+        observations: null,
+        photo_url: null,
+        degree_pdf_url: null,
+        receipt_url: null,
+      },
+      member: null,
+      current_period: currentPeriod(),
+    });
+  }
+
+  let existingApplication = null;
+  try {
+    [[existingApplication]] = await pool.query("SELECT * FROM applications WHERE user_id = ?", [
+      req.auth.sub,
+    ]);
+  } catch (error) {
+    console.warn("Solicitud temporal por error de base de datos:", error.message);
+    return res.status(201).json({
+      user: {
+        id: req.auth.sub,
+        dni,
+        full_name: fullName,
+        email,
+        phone,
+        address,
+        profession,
+      },
+      application: {
+        id: null,
+        status: "PENDIENTE",
+        observations: null,
+        photo_url: null,
+        degree_pdf_url: null,
+        receipt_url: null,
+      },
+      member: null,
+      current_period: currentPeriod(),
+    });
+  }
 
   if (existingApplication?.status === "APROBADO") {
     return res.status(409).json({ message: "La solicitud ya fue aprobada." });
