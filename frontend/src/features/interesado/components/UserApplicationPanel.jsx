@@ -64,7 +64,7 @@ export function UserApplicationPanel({
             </div>
           </label>
           <label>
-            Profesión
+            Profesion
             <input
               value={form.profession || ""}
               onChange={(event) => onUpdateForm("profession", event.target.value)}
@@ -79,36 +79,17 @@ export function UserApplicationPanel({
           <input value={form.full_name || ""} onChange={(event) => onUpdateForm("full_name", event.target.value)} disabled={fieldsDisabled} required />
         </label>
 
-        <div className="two-cols">
-          <label>
-            Correo
-            <input
-              type="email"
-              value={form.email || ""}
-              onChange={(event) => onUpdateForm("email", event.target.value)}
-              pattern={emailPattern}
-              placeholder="usuario@correo.com"
-              disabled={fieldsDisabled}
-              required
-            />
-          </label>
-          <label>
-            Teléfono
-            <input
-              value={form.phone || ""}
-              onChange={(event) => onUpdateForm("phone", event.target.value.replace(/\D/g, "").slice(0, 9))}
-              inputMode="numeric"
-              maxLength={9}
-              pattern="[0-9]{9}"
-              disabled={fieldsDisabled}
-              required
-            />
-          </label>
-        </div>
-
         <label>
-          Dirección
-          <input value={form.address || ""} onChange={(event) => onUpdateForm("address", event.target.value)} disabled={fieldsDisabled} />
+          Correo
+          <input
+            type="email"
+            value={form.email || ""}
+            onChange={(event) => onUpdateForm("email", event.target.value)}
+            pattern={emailPattern}
+            placeholder="usuario@correo.com"
+            disabled={fieldsDisabled}
+            required
+          />
         </label>
 
         <div className="upload-grid">
@@ -122,7 +103,7 @@ export function UserApplicationPanel({
           />
           <FileInput
             icon={FileText}
-            label="Título profesional PDF"
+            label="Titulo profesional PDF"
             accept="application/pdf"
             existing={application?.degree_pdf_url}
             disabled={fieldsDisabled}
@@ -130,7 +111,7 @@ export function UserApplicationPanel({
           />
           <FileInput
             icon={ReceiptText}
-            label="Recibo de inscripción"
+            label="Recibo de inscripcion"
             accept="application/pdf,image/png,image/jpeg,image/webp"
             existing={application?.receipt_url}
             disabled={fieldsDisabled}

@@ -32,8 +32,6 @@ async function updateProfile(req, res) {
   const pool = getPool();
   const fullName = String(req.body.full_name || "").trim();
   const email = String(req.body.email || "").trim().toLowerCase();
-  const phone = String(req.body.phone || "").trim();
-  const address = String(req.body.address || "").trim();
   const profession = String(req.body.profession || "").trim();
 
   if (!fullName || !email || !profession) {
@@ -42,16 +40,12 @@ async function updateProfile(req, res) {
   if (!isValidEmail(email)) {
     return res.status(422).json({ message: "Usa un correo valido." });
   }
-  if (!/^\d{9}$/.test(phone)) {
-    return res.status(422).json({ message: "El telefono debe tener 9 digitos." });
-  }
-
   try {
     await pool.query(
       `UPDATE users
        SET full_name = ?, email = ?, phone = ?, address = ?, profession = ?
        WHERE id = ?`,
-      [fullName, email, phone, address, profession, req.auth.sub]
+      [fullName, email, null, null, profession, req.auth.sub]
     );
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
@@ -68,8 +62,6 @@ async function submitApplication(req, res) {
   const dni = normalizeDni(req.body.dni);
   const fullName = String(req.body.full_name || "").trim();
   const email = String(req.body.email || "").trim().toLowerCase();
-  const phone = String(req.body.phone || "").trim();
-  const address = String(req.body.address || "").trim();
   const profession = String(req.body.profession || "").trim();
 
   if (dni.length !== 8) {
@@ -81,10 +73,6 @@ async function submitApplication(req, res) {
   if (!isValidEmail(email)) {
     return res.status(422).json({ message: "Usa un correo valido." });
   }
-  if (!/^\d{9}$/.test(phone)) {
-    return res.status(422).json({ message: "El telefono debe tener 9 digitos." });
-  }
-
   let pool;
   try {
     pool = getPool();
@@ -96,8 +84,6 @@ async function submitApplication(req, res) {
         dni,
         full_name: fullName,
         email,
-        phone,
-        address,
         profession,
       },
       application: {
@@ -126,8 +112,6 @@ async function submitApplication(req, res) {
         dni,
         full_name: fullName,
         email,
-        phone,
-        address,
         profession,
       },
       application: {
@@ -162,7 +146,7 @@ async function submitApplication(req, res) {
       `UPDATE users
        SET dni = ?, full_name = ?, email = ?, phone = ?, address = ?, profession = ?
        WHERE id = ?`,
-      [dni, fullName, email, phone, address, profession, req.auth.sub]
+      [dni, fullName, email, null, null, profession, req.auth.sub]
     );
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {

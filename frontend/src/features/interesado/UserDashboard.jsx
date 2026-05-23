@@ -1,4 +1,4 @@
-import { BadgeCheck, ClipboardCheck, Settings, ShieldCheck, WalletCards } from "lucide-react";
+import { BadgeCheck, ClipboardCheck, ShieldCheck, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DashboardShell, TopBar } from "../../components/layout";
 import { ProfileCard } from "../../components/ui";
@@ -8,7 +8,6 @@ import { currentPeriod } from "../../utils/format";
 import { UserApplicationPanel } from "./components/UserApplicationPanel";
 import { UserCardPanel } from "./components/UserCardPanel";
 import { UserPaymentsPanel } from "./components/UserPaymentsPanel";
-import { UserSettingsPanel } from "./components/UserSettingsPanel";
 import { buildUserNotifications } from "./notifications";
 
 const emailPattern = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
@@ -25,7 +24,6 @@ const USER_NAV_ITEMS = [
   { keyName: "solicitud", icon: ClipboardCheck, label: "Solicitud", text: "Datos y documentos" },
   { keyName: "carnet", icon: BadgeCheck, label: "Carnet", text: "QR y PDF" },
   { keyName: "pagos", icon: WalletCards, label: "Pagos", text: "Mercado Pago" },
-  { keyName: "configuracion", icon: Settings, label: "Configuración", text: "Perfil" },
 ];
 
 // Dashboard del interesado: coordina datos, pagos, solicitud y perfil.
@@ -101,7 +99,7 @@ export function UserDashboard({ token, onLogout }) {
 
     const payload = new FormData();
     payload.append("dni", dni);
-    ["full_name", "email", "phone", "address", "profession"].forEach((field) => {
+    ["full_name", "email", "profession"].forEach((field) => {
       payload.append(field, field === "email" ? String(form[field] || "").trim().toLowerCase() : form[field] || "");
     });
     if (files.photo) payload.append("photo", files.photo);
@@ -170,8 +168,8 @@ export function UserDashboard({ token, onLogout }) {
     }
     setMessage("");
     try {
-      const data = await api(`/api/dni/${dni}`);
-      const applicationCheck = await api(`/api/applications/dni/${dni}/status`, { token });
+      const applicationCheck = await api(`/api/public/applications/dni/${dni}/status`);
+      const data = applicationCheck;
       const fullName = data.full_name || [data.first_name, data.paternal_last_name, data.maternal_last_name].filter(Boolean).join(" ");
       setForm((current) => ({
         ...current,
@@ -181,7 +179,7 @@ export function UserDashboard({ token, onLogout }) {
         paternal_last_name: data.paternal_last_name || current.paternal_last_name,
         maternal_last_name: data.maternal_last_name || current.maternal_last_name,
       }));
-      if (applicationCheck.exists) {
+      if (applicationCheck.has_application) {
         setApplicationLookupMessage(`Este DNI ya tiene una solicitud registrada con estado ${applicationCheck.status}.`);
         setApplicationUnlocked(false);
         setMessage(`Este DNI ya tiene una solicitud registrada con estado ${applicationCheck.status}.`);
@@ -194,31 +192,6 @@ export function UserDashboard({ token, onLogout }) {
       setMessage(`${error.message} Puedes editar los datos manualmente antes de enviar.`);
     }
   }
-
-  async function saveUserProfile(event) {
-    event.preventDefault();
-    setMessage("");
-    try {
-      const bodyPayload = {
-        full_name: form.full_name,
-        email: form.email,
-        phone: form.phone,
-        address: form.address,
-        profession: form.profession,
-      };
-      const data = await api("/api/me/profile", {
-        method: "PUT",
-        token,
-        body: bodyPayload,
-      });
-      setBundle(data);
-      setForm((current) => ({ ...current, ...data.user }));
-      setMessage("Configuración actualizada.");
-    } catch (error) {
-      setMessage(error.message);
-    }
-  }
-
   const userNotifications = useMemo(() => {
     return buildUserNotifications({
       application,
@@ -313,17 +286,6 @@ export function UserDashboard({ token, onLogout }) {
         onPeriodChange={setPeriod}
         onPayMonthly={payMonthly}
         onPayFullDebt={payFullDebt}
-      />
-
-      <UserSettingsPanel
-        activeModule={activeModule}
-        user={user}
-        member={member}
-        application={application}
-        form={form}
-        emailPattern={emailPattern}
-        onSubmit={saveUserProfile}
-        onUpdateForm={updateForm}
       />
     </DashboardShell>
   );

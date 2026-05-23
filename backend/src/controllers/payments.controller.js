@@ -12,21 +12,32 @@ const { refreshMemberStatus } = require("../services/members.service");
 
 // Historial del interesado: pagos realizados, periodos pendientes y deuda total.
 async function listUserPayments(req, res) {
-  const pool = getPool();
-  const [[member]] = await pool.query("SELECT * FROM members WHERE user_id = ?", [req.auth.sub]);
-  if (!member) return res.json({ member: null, payments: [] });
-  await refreshMemberStatus(member.id);
-  const [payments] = await pool.query(
-    "SELECT * FROM payments WHERE member_id = ? ORDER BY period_month DESC, created_at DESC",
-    [member.id]
-  );
-  const pendingPeriods = await getPendingPeriods(member.id);
-  res.json({
-    member: { ...member, status: await refreshMemberStatus(member.id) },
-    payments,
-    pending_periods: pendingPeriods,
-    debt_amount: pendingPeriods.length * 20,
-  });
+  let pool;
+  try {
+    pool = getPool();
+  } catch (error) {
+    console.warn("Pagos temporales sin base de datos disponible:", error.message);
+    return res.json({ member: null, payments: [], pending_periods: [], debt_amount: 0 });
+  }
+  try {
+    const [[member]] = await pool.query("SELECT * FROM members WHERE user_id = ?", [req.auth.sub]);
+    if (!member) return res.json({ member: null, payments: [], pending_periods: [], debt_amount: 0 });
+    await refreshMemberStatus(member.id);
+    const [payments] = await pool.query(
+      "SELECT * FROM payments WHERE member_id = ? ORDER BY period_month DESC, created_at DESC",
+      [member.id]
+    );
+    const pendingPeriods = await getPendingPeriods(member.id);
+    res.json({
+      member: { ...member, status: await refreshMemberStatus(member.id) },
+      payments,
+      pending_periods: pendingPeriods,
+      debt_amount: pendingPeriods.length * 20,
+    });
+  } catch (error) {
+    console.warn("Pagos temporales por error de base de datos:", error.message);
+    res.json({ member: null, payments: [], pending_periods: [], debt_amount: 0 });
+  }
 }
 
 // Checkout mensual: crea o reutiliza pago pendiente para un periodo concreto.
