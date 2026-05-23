@@ -177,6 +177,25 @@ async function confirmMercadoPagoReturn(req, res) {
     mpPayment.date_approved
   );
 
+  if (!payment && String(mpPayment.external_reference || "").startsWith("CIP-INSCRIPCION-")) {
+    return res.json({
+      message: "Pago de inscripcion confirmado. Puedes descargar tu comprobante.",
+      payment_id: String(mpPayment.id),
+      payment: {
+        id: String(mpPayment.id),
+        user_id: req.auth.sub,
+        period_month: currentPeriod(),
+        amount: 20,
+        payment_type: "INSCRIPCION",
+        method: "MERCADO_PAGO",
+        status: "PAGADO",
+        paid_at: mpPayment.date_approved || new Date().toISOString(),
+        external_reference: mpPayment.external_reference,
+        mp_payment_id: String(mpPayment.id),
+      },
+    });
+  }
+
   if (!payment || payment.user_id !== req.auth.sub) {
     return res.status(404).json({ message: "No se encontro el pago asociado a tu cuenta." });
   }
