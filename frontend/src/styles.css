@@ -1,0 +1,40 @@
+/* Base global: variables de color, botones, formularios y utilidades comunes. */
+@import "./styles/base.css";
+
+/* Inicio publico y pantallas de autenticacion. */
+@import "./styles/inicio.css";
+
+/* Dashboard: estructura compartida por interesado y administrador. */
+@import "./styles/dashboard.css";
+
+/* Carnet / boleta visual: tarjeta virtual y version para PDF. */
+@import "./styles/carnet.css";
+
+/* Pagina publica de verificacion de carnet. */
+@import "./styles/verificacion.css";
+
+/* Ajustes responsive para mobile/tablet. Mantener al final. */
+@import "./styles/responsive.css";
+
+.brand strong,
+.hero-copy h1,
+.portal-hero h1,
+.dashboard-header h1,
+.section-title h2,
+.landing-panels h3,
+.metric strong {
+  font-weight: 600;
+}
+
+.btn,
+.icon-btn,
+.auth-switch button,
+.sidebar-menu button b,
+.cip-mainnav nav a,
+.text-link,
+.badge,
+.section-title span,
+.metric span,
+.eyebrow {
+  font-weight: 600;
+}

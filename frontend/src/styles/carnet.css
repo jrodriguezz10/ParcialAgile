@@ -1,0 +1,301 @@
+/* Contenedor de la boleta/carnet: controla ancho y scroll horizontal. */
+.card-frame {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+
+.member-card-preview .card-frame {
+  display: flex;
+  justify-content: center;
+  overflow-x: hidden;
+}
+
+.member-card-preview .virtual-card {
+  transform: scale(0.82);
+  transform-origin: top center;
+  margin-bottom: -48px;
+}
+
+/* Diseno principal del carnet. Cambiar aqui borde, radio, fondo y sombra. */
+.virtual-card {
+  position: relative;
+  width: 520px;
+  height: 326px;
+  overflow: hidden;
+  border: 1px solid #c7b479;
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.98) 0 62%, rgba(255, 255, 255, 0.82)),
+    linear-gradient(135deg, #ffffff, #f3eee3);
+  color: #101211;
+  padding: 16px;
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.15);
+}
+
+/* Franja institucional superior del carnet. */
+.virtual-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 46px;
+  background: linear-gradient(90deg, var(--red-900), var(--red-700) 55%, var(--gold));
+}
+
+.virtual-card::after {
+  content: "";
+  position: absolute;
+  right: -46px;
+  top: -60px;
+  width: 190px;
+  height: 420px;
+  background: rgba(184, 25, 42, 0.08);
+  transform: rotate(18deg);
+}
+
+.virtual-card header {
+  min-height: 52px;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+}
+
+.virtual-card header strong {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.05;
+}
+
+.virtual-card header span {
+  display: block;
+  margin-top: 2px;
+  color: #fff4d8;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.mini-seal {
+  width: 44px;
+  height: 44px;
+}
+
+.card-watermark-mark {
+  position: absolute;
+  right: 58px;
+  top: 72px;
+  width: 190px;
+  height: 190px;
+  object-fit: contain;
+  opacity: 0.18;
+}
+
+/* Datos, foto y QR del carnet. */
+.card-content {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr) 94px;
+  gap: 14px;
+  margin-top: 22px;
+  align-items: start;
+}
+
+.photo-box {
+  width: 118px;
+  height: 150px;
+  border: 1px solid #9ca39f;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #eef0ee;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+
+.photo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-data {
+  min-width: 0;
+  padding-top: 5px;
+}
+
+.card-data > strong {
+  display: block;
+  margin: 0 0 5px;
+  font-size: 1.04rem;
+  line-height: 1.12;
+  text-transform: uppercase;
+}
+
+.card-data > small {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--red-800);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 12px;
+}
+
+.card-grid p {
+  margin: 0;
+}
+
+.card-grid span {
+  display: block;
+  color: #575f5c;
+  font-size: 0.61rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.card-grid b {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  line-height: 1.12;
+}
+
+.qr-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.qr-box svg {
+  border: 1px solid #b9c1bd;
+  border-radius: 8px;
+  background: #fff;
+  padding: 5px;
+}
+
+.qr-box span {
+  color: var(--red-800);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.virtual-card footer {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid rgba(37, 35, 34, 0.16);
+  padding-top: 10px;
+}
+
+.virtual-card footer span {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.virtual-card footer b {
+  color: var(--green);
+  font-size: 0.8rem;
+}
+
+.virtual-card.is-disabled footer b {
+  color: var(--danger);
+}
+
+/* Mensaje INHABILITADO superpuesto cuando el colegiado no esta activo. */
+.disabled-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  transform: rotate(-18deg);
+  color: rgba(184, 25, 42, 0.3);
+  font-size: 3.45rem;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+/* Bloques de pago relacionados al carnet y mensualidades. */
+.payment-box {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.payment-box h3 {
+  margin: 0 0 12px;
+}
+
+.mp-brand {
+  margin-bottom: 12px;
+  border: 1px solid #bfe8f6;
+  border-radius: 14px;
+  background: #e9f8ff;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mp-brand img {
+  width: 118px;
+  max-height: 44px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.mp-brand span {
+  color: #14516a;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.payment-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.payment-controls input {
+  max-width: 180px;
+}
+
+.payment-summary {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.payment-box-inline {
+  margin: 0 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  background: #fff;
+}
+
+.disabled-watermark {
+  transform: rotate(-24deg);
+  color: rgba(178, 13, 29, 0.38);
+  font-size: 4rem;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.7);
+}

@@ -1,0 +1,330 @@
+import { BadgeCheck, ClipboardCheck, Settings, ShieldCheck, WalletCards } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { DashboardShell, TopBar } from "../../components/layout";
+import { ProfileCard } from "../../components/ui";
+import { APP_STATUS, MEMBER_STATUS, blankProfile } from "../../constants/status";
+import { api } from "../../lib/api";
+import { currentPeriod } from "../../utils/format";
+import { UserApplicationPanel } from "./components/UserApplicationPanel";
+import { UserCardPanel } from "./components/UserCardPanel";
+import { UserPaymentsPanel } from "./components/UserPaymentsPanel";
+import { UserSettingsPanel } from "./components/UserSettingsPanel";
+import { buildUserNotifications } from "./notifications";
+
+const emailPattern = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(String(email || "").trim());
+}
+
+function onlyDniDigits(value) {
+  return String(value || "").replace(/\D/g, "").slice(0, 8);
+}
+
+const USER_NAV_ITEMS = [
+  { keyName: "solicitud", icon: ClipboardCheck, label: "Solicitud", text: "Datos y documentos" },
+  { keyName: "carnet", icon: BadgeCheck, label: "Carnet", text: "QR y PDF" },
+  { keyName: "pagos", icon: WalletCards, label: "Pagos", text: "Mercado Pago" },
+  { keyName: "configuracion", icon: Settings, label: "Configuración", text: "Perfil" },
+];
+
+// Dashboard del interesado: coordina datos, pagos, solicitud y perfil.
+export function UserDashboard({ token, onLogout }) {
+  const [bundle, setBundle] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [pendingPeriods, setPendingPeriods] = useState([]);
+  const [debtAmount, setDebtAmount] = useState(0);
+  const [form, setForm] = useState(blankProfile);
+  const [files, setFiles] = useState({ photo: null, degreePdf: null, receipt: null });
+  const [applicationUnlocked, setApplicationUnlocked] = useState(false);
+  const [applicationLookupMessage, setApplicationLookupMessage] = useState("");
+  const [period, setPeriod] = useState(currentPeriod());
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [activeModule, setActiveModule] = useState("solicitud");
+  const cardRef = useRef(null);
+
+  const application = bundle?.application;
+  const member = bundle?.member;
+  const user = bundle?.user;
+
+  async function load() {
+    setLoading(true);
+    try {
+      const [me, paymentData] = await Promise.all([
+        api("/api/me", { token }),
+        api("/api/me/payments", { token }),
+      ]);
+      setBundle(me);
+      setPayments(paymentData.payments || []);
+      setPendingPeriods(paymentData.pending_periods || []);
+      setDebtAmount(Number(paymentData.debt_amount || 0));
+      setForm({ ...blankProfile, ...me.user });
+      setApplicationUnlocked(!me.application);
+      setApplicationLookupMessage("");
+      setPeriod(me.current_period || currentPeriod());
+    } catch (error) {
+      if (/sesion vencida|token requerido|no autorizado/i.test(error.message)) {
+        onLogout();
+        return;
+      }
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [token]);
+
+  const updateForm = (field, value) => {
+    if (field === "dni" && !application) {
+      setApplicationUnlocked(false);
+      setApplicationLookupMessage("");
+    }
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  async function submitApplication(event) {
+    event.preventDefault();
+    setMessage("");
+    const dni = onlyDniDigits(form.dni);
+    if (dni.length !== 8) {
+      setMessage("Ingresa un DNI valido de 8 digitos antes de enviar la solicitud.");
+      return;
+    }
+    if (!isValidEmail(form.email)) {
+      setMessage("Usa un correo valido.");
+      return;
+    }
+
+    const payload = new FormData();
+    payload.append("dni", dni);
+    ["full_name", "email", "phone", "address", "profession"].forEach((field) => {
+      payload.append(field, field === "email" ? String(form[field] || "").trim().toLowerCase() : form[field] || "");
+    });
+    if (files.photo) payload.append("photo", files.photo);
+    if (files.degreePdf) payload.append("degreePdf", files.degreePdf);
+    if (files.receipt) payload.append("receipt", files.receipt);
+
+    try {
+      const data = await api("/api/applications", {
+        method: "POST",
+        token,
+        body: payload,
+        form: true,
+      });
+      setBundle(data);
+      setFiles({ photo: null, degreePdf: null, receipt: null });
+      setMessage("Solicitud enviada al Colegio de Ingenieros.");
+      await load();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function payMonthly() {
+    setMessage("");
+    try {
+      const data = await api("/api/me/payments/monthly", {
+        method: "POST",
+        token,
+        body: { period_month: period },
+      });
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
+      setMessage(data.message || "Pago creado, pero no hay enlace de checkout disponible.");
+      await load();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function payFullDebt() {
+    setMessage("");
+    try {
+      const data = await api("/api/me/payments/full", {
+        method: "POST",
+        token,
+      });
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
+      setMessage(data.message || "Pago total creado, pero no hay enlace de checkout disponible.");
+      await load();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function lookupSolicitudDni() {
+    const dni = onlyDniDigits(form.dni || user?.dni);
+    setForm((current) => ({ ...current, dni }));
+    if (dni.length !== 8) {
+      setMessage("Ingresa un DNI de 8 digitos para buscar.");
+      return;
+    }
+    setMessage("");
+    try {
+      const data = await api(`/api/dni/${dni}`);
+      const applicationCheck = await api(`/api/applications/dni/${dni}/status`, { token });
+      const fullName = data.full_name || [data.first_name, data.paternal_last_name, data.maternal_last_name].filter(Boolean).join(" ");
+      setForm((current) => ({
+        ...current,
+        dni,
+        full_name: fullName || current.full_name,
+        first_name: data.first_name || current.first_name,
+        paternal_last_name: data.paternal_last_name || current.paternal_last_name,
+        maternal_last_name: data.maternal_last_name || current.maternal_last_name,
+      }));
+      if (applicationCheck.exists) {
+        setApplicationLookupMessage(`Este DNI ya tiene una solicitud registrada con estado ${applicationCheck.status}.`);
+        setApplicationUnlocked(false);
+        setMessage(`Este DNI ya tiene una solicitud registrada con estado ${applicationCheck.status}.`);
+      } else {
+        setApplicationLookupMessage("DNI validado. Puedes iniciar una nueva solicitud.");
+        setApplicationUnlocked(false);
+        setMessage("Datos RENIEC cargados. Presiona Hacer solicitud para completar el formulario.");
+      }
+    } catch (error) {
+      setMessage(`${error.message} Puedes editar los datos manualmente antes de enviar.`);
+    }
+  }
+
+  async function saveUserProfile(event) {
+    event.preventDefault();
+    setMessage("");
+    try {
+      const bodyPayload = {
+        full_name: form.full_name,
+        email: form.email,
+        phone: form.phone,
+        address: form.address,
+        profession: form.profession,
+      };
+      const data = await api("/api/me/profile", {
+        method: "PUT",
+        token,
+        body: bodyPayload,
+      });
+      setBundle(data);
+      setForm((current) => ({ ...current, ...data.user }));
+      setMessage("Configuración actualizada.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  const userNotifications = useMemo(() => {
+    return buildUserNotifications({
+      application,
+      member,
+      debtAmount,
+      openModule: setActiveModule,
+    });
+  }, [application, member, debtAmount]);
+
+  if (loading) {
+    return (
+      <main className="app-shell">
+        <TopBar role="usuario" onLogout={onLogout} />
+        <div className="loading">Cargando portal...</div>
+      </main>
+    );
+  }
+
+  return (
+    <DashboardShell
+      label="Portal del interesado"
+      title="Colegiatura digital"
+      subtitle="Completa tu solicitud, revisa tu carnet virtual y administra tus pagos mensuales."
+      activeKey={activeModule}
+      onSelect={setActiveModule}
+      onLogout={onLogout}
+      notifications={userNotifications}
+      notificationScope="interesado"
+      profile={
+        <ProfileCard
+          compact
+          name={user?.full_name || "Interesado"}
+          subtitle={`DNI ${user?.dni || "--------"}`}
+          detail={form.profession || "Profesión pendiente"}
+          image={application?.photo_url}
+          badges={[application?.status, member?.status].filter(Boolean)}
+        />
+      }
+      navItems={USER_NAV_ITEMS}
+      summary={[
+        { icon: ClipboardCheck, label: "Trámite", value: APP_STATUS[application?.status] || "Sin solicitud" },
+        { icon: ShieldCheck, label: "Condición", value: MEMBER_STATUS[member?.status] || "No colegiado" },
+        {
+          icon: WalletCards,
+          label: "Mensualidad",
+          value: debtAmount > 0 ? `Deuda S/ ${debtAmount.toFixed(2)}` : `S/ 20.00 - ${period}`,
+        },
+      ]}
+    >
+      {message && <div className="banner">{message}</div>}
+
+      <div className={`workspace user-workspace module-${activeModule}`}>
+        <UserApplicationPanel
+          activeModule={activeModule}
+          application={application}
+          form={form}
+          files={files}
+          emailPattern={emailPattern}
+          unlocked={applicationUnlocked}
+          lookupMessage={applicationLookupMessage}
+          onSubmit={submitApplication}
+          onLookupDni={lookupSolicitudDni}
+          onUpdateForm={updateForm}
+          onFilesChange={setFiles}
+          onStartApplication={() => setApplicationUnlocked(true)}
+          onlyDniDigits={onlyDniDigits}
+        />
+        <UserCardPanel
+          activeModule={activeModule}
+          member={member}
+          user={user}
+          application={application}
+          cardRef={cardRef}
+          period={period}
+          debtAmount={debtAmount}
+          pendingPeriods={pendingPeriods}
+          onPeriodChange={setPeriod}
+          onPayMonthly={payMonthly}
+          onPayFullDebt={payFullDebt}
+        />
+      </div>
+
+      <UserPaymentsPanel
+        activeModule={activeModule}
+        member={member}
+        user={user}
+        payments={payments}
+        period={period}
+        debtAmount={debtAmount}
+        pendingPeriods={pendingPeriods}
+        onRefresh={load}
+        onPeriodChange={setPeriod}
+        onPayMonthly={payMonthly}
+        onPayFullDebt={payFullDebt}
+      />
+
+      <UserSettingsPanel
+        activeModule={activeModule}
+        user={user}
+        member={member}
+        application={application}
+        form={form}
+        emailPattern={emailPattern}
+        onSubmit={saveUserProfile}
+        onUpdateForm={updateForm}
+      />
+    </DashboardShell>
+  );
+}
