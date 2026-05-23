@@ -13,7 +13,7 @@ export default function PortalInteresado({ onNavigate }) {
 
   if (!token) {
     return (
-      <AuthPageLayout title="Solicitud" subtitle="Consulta tu DNI para ingresar al portal del interesado.">
+      <AuthPageLayout title="Solicitud" subtitle="Consulta tu DNI para ingresar al portal de colegiatura.">
         <p className="notice">Redirigiendo a consulta de solicitud...</p>
       </AuthPageLayout>
     );

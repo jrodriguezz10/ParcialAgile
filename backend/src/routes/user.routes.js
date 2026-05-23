@@ -26,6 +26,7 @@ router.post(
 
 // Mensualidades y checkout del interesado.
 router.get("/me/payments", auth("user"), asyncHandler(payments.listUserPayments));
+router.post("/me/payments/inscription", auth("user"), asyncHandler(payments.createInscriptionPayment));
 router.post("/me/payments/monthly", auth("user"), asyncHandler(payments.createMonthlyPayment));
 router.post("/me/payments/full", auth("user"), asyncHandler(payments.createFullPayment));
 

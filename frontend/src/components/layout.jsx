@@ -35,7 +35,7 @@ export function AuthLayout() {
           <div>
             <span>Comunicacion</span>
             <h3>Consulta directa y seguimiento</h3>
-            <p>El interesado puede revisar observaciones, estado del tramite y habilitacion mensual.</p>
+            <p>Revisa observaciones, estado del tramite y habilitacion mensual.</p>
           </div>
         </article>
         <article>
@@ -122,7 +122,7 @@ export function SolicitudLayout({ onAuthenticated }) {
         <div className="auth-page-copy">
           <span className="eyebrow">Colegiacion digital CIP</span>
           <h1>Solicitud</h1>
-          <p>Consulta el estado con DNI. Si no existe una solicitud, abre el portal del interesado para completar tus datos y documentos.</p>
+          <p>Consulta el estado con DNI. Si no existe una solicitud, abre el portal de colegiatura para completar tus datos y documentos.</p>
         </div>
         <section className="public-request-section solicitud-card" id="solicitud">
           <div className="section-title">

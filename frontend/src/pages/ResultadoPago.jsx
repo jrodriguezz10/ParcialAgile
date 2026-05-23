@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { BrandMark, Button } from "../components/ui";
 import { api, getUserToken } from "../lib/api";
+import { downloadPaymentReceiptPdf } from "../utils/pdf";
 
 // Pagina de retorno Mercado Pago: confirma el pago al volver del checkout.
 export default function ResultadoPago() {
@@ -33,7 +34,10 @@ export default function ResultadoPago() {
       token,
       body: payload,
     })
-      .then((data) => setMessage(data.message || "Pago confirmado."))
+      .then((data) => {
+        setMessage(data.message || "Pago confirmado.");
+        if (data.payment) downloadPaymentReceiptPdf(data.payment, data.user || {});
+      })
       .catch((error) => setMessage(error.message))
       .finally(() => setDone(true));
   }, []);
@@ -48,11 +52,11 @@ export default function ResultadoPago() {
         <h1>Resultado de pago</h1>
         <p>{message}</p>
         <div className="button-row center-row">
-          <Button type="button" icon={WalletCards} onClick={() => navigate("/")}>
+          <Button type="button" icon={WalletCards} onClick={() => navigate("/interesado")}>
             Volver a mi portal
           </Button>
           {done && (
-            <Link className="text-link" to="/">
+            <Link className="text-link" to="/interesado">
               Ver estado
             </Link>
           )}

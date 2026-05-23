@@ -10,6 +10,30 @@ const {
 } = require("../services/payments.service");
 const { refreshMemberStatus } = require("../services/members.service");
 
+async function createInscriptionPayment(req, res) {
+  const user = {
+    id: req.auth.sub,
+    dni: req.auth.dni,
+    full_name: req.auth.name || `DNI ${req.auth.dni || ""}`.trim(),
+    email: req.auth.email || `${req.auth.dni || "solicitante"}@pendiente.cip.local`,
+  };
+  const checkout = {
+    amount: 20,
+    period_month: currentPeriod(),
+    external_reference: `CIP-INSCRIPCION-${user.dni || user.id}-${Date.now()}`,
+    item_id: `inscripcion-${user.dni || user.id}`,
+    title: "Pago de inscripcion CIP",
+    description: `Pago de inscripcion de S/ 20.00 - ${user.full_name}`,
+  };
+  const mp = await createMercadoPagoPreference(checkout, user, req);
+  res.status(201).json({
+    payment_type: "INSCRIPCION",
+    amount: 20,
+    status: mp.checkout_url ? "PENDIENTE" : "NO_CONFIGURADO",
+    ...mp,
+  });
+}
+
 // Historial del interesado: pagos realizados, periodos pendientes y deuda total.
 async function listUserPayments(req, res) {
   let pool;
@@ -157,7 +181,7 @@ async function confirmMercadoPagoReturn(req, res) {
     return res.status(404).json({ message: "No se encontro el pago asociado a tu cuenta." });
   }
 
-  res.json({ message: "Pago confirmado.", payment_id: payment.id });
+  res.json({ message: "Pago confirmado. Puedes descargar tu comprobante.", payment_id: payment.id, payment });
 }
 
 // Webhook Mercado Pago: confirmacion asincrona del proveedor.
@@ -177,6 +201,7 @@ async function mercadoPagoWebhook(req, res) {
 }
 
 module.exports = {
+  createInscriptionPayment,
   listUserPayments,
   createMonthlyPayment,
   createFullPayment,

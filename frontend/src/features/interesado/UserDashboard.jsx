@@ -141,6 +141,23 @@ export function UserDashboard({ token, onLogout }) {
     }
   }
 
+  async function payRegistration() {
+    setMessage("");
+    try {
+      const data = await api("/api/me/payments/inscription", {
+        method: "POST",
+        token,
+      });
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
+      setMessage(data.message || "Mercado Pago no esta configurado. Adjunta tu comprobante de pago para continuar.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
   async function payFullDebt() {
     setMessage("");
     try {
@@ -212,7 +229,7 @@ export function UserDashboard({ token, onLogout }) {
 
   return (
     <DashboardShell
-      label="Portal del interesado"
+      label="Portal de colegiatura"
       title="Colegiatura digital"
       subtitle="Completa tu solicitud, revisa tu carnet virtual y administra tus pagos mensuales."
       activeKey={activeModule}
@@ -223,7 +240,7 @@ export function UserDashboard({ token, onLogout }) {
       profile={
         <ProfileCard
           compact
-          name={user?.full_name || "Interesado"}
+          name={user?.full_name || "Solicitante"}
           subtitle={`DNI ${user?.dni || "--------"}`}
           detail={form.profession || "Profesión pendiente"}
           image={application?.photo_url}
@@ -254,6 +271,7 @@ export function UserDashboard({ token, onLogout }) {
           lookupMessage={applicationLookupMessage}
           onSubmit={submitApplication}
           onLookupDni={lookupSolicitudDni}
+          onPayRegistration={payRegistration}
           onUpdateForm={updateForm}
           onFilesChange={setFiles}
           onStartApplication={() => setApplicationUnlocked(true)}

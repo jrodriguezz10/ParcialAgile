@@ -102,7 +102,10 @@ export function downloadPaymentReceiptPdf(payment, payer = {}) {
   doc.setFont("helvetica", "normal");
   doc.rect(18, 114, 170, 34);
   doc.text("1", 24, 124);
-  doc.text(split(doc, `Mensualidad CIP periodo ${safeText(payment.period_month)} (${safeText(payment.method)})`, 88), 42, 124);
+  const concept = payment.payment_type === "INSCRIPCION"
+    ? "Inscripcion CIP"
+    : `Mensualidad CIP periodo ${safeText(payment.period_month)}`;
+  doc.text(split(doc, `${concept} (${safeText(payment.method)})`, 88), 42, 124);
   doc.text(formatMoney(amount), 145, 124, { align: "right" });
   doc.text(formatMoney(amount), 184, 124, { align: "right" });
 

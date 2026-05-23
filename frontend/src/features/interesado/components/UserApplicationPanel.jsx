@@ -12,6 +12,7 @@ export function UserApplicationPanel({
   lookupMessage,
   onSubmit,
   onLookupDni,
+  onPayRegistration,
   onUpdateForm,
   onFilesChange,
   onStartApplication,
@@ -21,12 +22,13 @@ export function UserApplicationPanel({
   const canEditApplication = !hasApplication ? unlocked : application.status === "OBSERVADO";
   const shouldShowStart = !hasApplication && lookupMessage && !unlocked;
   const fieldsDisabled = !canEditApplication;
+  const hasPaymentProof = Boolean(files.receipt || application?.receipt_url);
 
   return (
     <section className={`panel ${activeModule === "solicitud" ? "" : "module-hidden"}`} id="solicitud">
       <div className="section-title">
         <div>
-          <span>Interesado</span>
+          <span>Solicitud</span>
           <h2>Solicitud de colegiatura</h2>
         </div>
         <StatusBadge status={application?.status} />
@@ -47,6 +49,20 @@ export function UserApplicationPanel({
       )}
 
       <form className="stack" onSubmit={onSubmit}>
+        {!hasApplication && (
+          <div className="info-banner">
+            <AlertTriangle size={18} />
+            <span>Antes de enviar, realiza el pago de inscripcion de S/ 20.00 con Mercado Pago y adjunta el comprobante.</span>
+          </div>
+        )}
+        {!hasApplication && (
+          <div className="button-row">
+            <Button type="button" icon={Upload} onClick={onPayRegistration}>
+              Pagar S/ 20.00 con Mercado Pago
+            </Button>
+          </div>
+        )}
+
         <div className="two-cols">
           <label>
             DNI
@@ -111,7 +127,7 @@ export function UserApplicationPanel({
           />
           <FileInput
             icon={ReceiptText}
-            label="Recibo de inscripcion"
+            label="Comprobante de pago"
             accept="application/pdf,image/png,image/jpeg,image/webp"
             existing={application?.receipt_url}
             disabled={fieldsDisabled}
@@ -125,8 +141,8 @@ export function UserApplicationPanel({
               Hacer solicitud
             </Button>
           ) : (
-            <Button icon={Upload} disabled={!canEditApplication || application?.status === "APROBADO"}>
-              Enviar solicitud
+            <Button icon={Upload} disabled={!canEditApplication || !hasPaymentProof || application?.status === "APROBADO"}>
+              {hasPaymentProof ? "Enviar solicitud" : "Adjunta comprobante para enviar"}
             </Button>
           )}
         </div>
