@@ -22,7 +22,7 @@ function onlyDniDigits(value) {
 
 const USER_NAV_ITEMS = [
   { keyName: "solicitud", icon: ClipboardCheck, label: "Solicitud", text: "Datos y documentos" },
-  { keyName: "carnet", icon: BadgeCheck, label: "Carnet", text: "QR y PDF" },
+  { keyName: "carnet", icon: BadgeCheck, label: "Carnet", text: "Virtual" },
   { keyName: "pagos", icon: WalletCards, label: "Pagos", text: "Mercado Pago" },
 ];
 
@@ -57,7 +57,10 @@ export function UserDashboard({ token, onLogout }) {
       setPayments(paymentData.payments || []);
       setPendingPeriods(paymentData.pending_periods || []);
       setDebtAmount(Number(paymentData.debt_amount || 0));
-      setForm({ ...blankProfile, ...me.user });
+      const loadedUser = { ...blankProfile, ...me.user };
+      if (/^pendiente$/i.test(String(loadedUser.profession || "").trim())) loadedUser.profession = "";
+      if (/^[0-9]{8}@pendiente\.cip\.local$/i.test(String(loadedUser.email || ""))) loadedUser.email = "";
+      setForm(loadedUser);
       setApplicationUnlocked(!me.application);
       setApplicationLookupMessage("");
       setPeriod(me.current_period || currentPeriod());
@@ -77,6 +80,7 @@ export function UserDashboard({ token, onLogout }) {
   }, [token]);
 
   const updateForm = (field, value) => {
+    if (field === "full_name") return;
     if (field === "dni" && !application) {
       setApplicationUnlocked(false);
       setApplicationLookupMessage("");
@@ -92,8 +96,25 @@ export function UserDashboard({ token, onLogout }) {
       setMessage("Ingresa un DNI valido de 8 digitos antes de enviar la solicitud.");
       return;
     }
+    if (!String(form.full_name || "").trim() || !String(form.profession || "").trim()) {
+      setMessage("Completa nombres y profesion antes de enviar.");
+      return;
+    }
     if (!isValidEmail(form.email)) {
       setMessage("Usa un correo valido.");
+      return;
+    }
+    const mustReplaceDocuments = application?.status === "OBSERVADO" || application?.status === "RECHAZADO";
+    if (!files.photo && (mustReplaceDocuments || !application?.photo_url)) {
+      setMessage("Adjunta la foto tipo carnet.");
+      return;
+    }
+    if (!files.degreePdf && (mustReplaceDocuments || !application?.degree_pdf_url)) {
+      setMessage("Adjunta el titulo profesional en PDF.");
+      return;
+    }
+    if (!files.receipt && (mustReplaceDocuments || !application?.receipt_url)) {
+      setMessage("Adjunta el comprobante de pago.");
       return;
     }
 
@@ -143,10 +164,18 @@ export function UserDashboard({ token, onLogout }) {
 
   async function payRegistration() {
     setMessage("");
+    const dni = onlyDniDigits(form.dni || user?.dni);
+    const email = String(form.email || "").trim().toLowerCase();
+    const fullName = String(form.full_name || "").trim();
+    if (dni.length !== 8 || !fullName || !isValidEmail(email)) {
+      setMessage("Completa DNI, nombres y correo antes de abrir el pago de inscripcion.");
+      return;
+    }
     try {
       const data = await api("/api/me/payments/inscription", {
         method: "POST",
         token,
+        body: { dni, full_name: fullName, email },
       });
       if (data.checkout_url) {
         window.location.href = data.checkout_url;
@@ -206,7 +235,7 @@ export function UserDashboard({ token, onLogout }) {
         setMessage("Datos RENIEC cargados. Presiona Hacer solicitud para completar el formulario.");
       }
     } catch (error) {
-      setMessage(`${error.message} Puedes editar los datos manualmente antes de enviar.`);
+      setMessage(error.message);
     }
   }
   const userNotifications = useMemo(() => {

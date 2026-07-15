@@ -43,6 +43,9 @@ export function LoginAuth({ onAdminAuthenticated }) {
 
   return (
     <form className="stack" onSubmit={submit}>
+      <p className="auth-note">
+        Acceso administrativo de demostracion. Usa solo cuentas creadas para este proyecto academico.
+      </p>
       <h2 className="auth-form-title" style={{ textAlign: "center" }}>Iniciar sesión</h2>
 
       <label>
@@ -53,6 +56,7 @@ export function LoginAuth({ onAdminAuthenticated }) {
           onChange={(event) => setEmail(event.target.value)}
           pattern={emailPattern}
           placeholder="usuario@correo.com"
+          autoComplete="username"
           required
         />
       </label>
@@ -64,6 +68,7 @@ export function LoginAuth({ onAdminAuthenticated }) {
           visible={showPassword}
           onToggle={() => setShowPassword((current) => !current)}
           onChange={(event) => setPassword(event.target.value)}
+          autoComplete="current-password"
           required
         />
       </label>

@@ -21,6 +21,42 @@ source backend/database/init.sql;
 
 Ese script crea la base, el usuario y todas las tablas principales. El backend tambien valida y actualiza el esquema automaticamente al iniciar.
 
+Para exportar la base local antes de subirla a un MySQL remoto:
+
+```bash
+cd backend
+npm run db:export
+```
+
+El comando crea un respaldo `.sql` en `backend/backups/`.
+
+## Produccion en Vercel
+
+Vercel no aloja MySQL dentro del proyecto. Para produccion usa un MySQL privado remoto compatible, por ejemplo PlanetScale, TiDB Cloud, Aiven, Railway u otro proveedor, y guarda las credenciales como variables privadas del proyecto `backend`.
+
+Variables minimas del backend:
+
+```text
+DATABASE_URL=mysql://usuario:clave@host:3306/parcial_agile
+DB_SSL=true
+JWT_SECRET=un-secreto-largo
+ADMIN_EMAIL=correo-admin
+ADMIN_PASSWORD=clave-admin
+CORS_ORIGIN=https://frontend-theta-rosy-97.vercel.app,https://frontend-rodriguezfrancis903-2617s-projects.vercel.app
+FRONTEND_URL=https://frontend-theta-rosy-97.vercel.app
+PUBLIC_BACKEND_URL=https://backend-eight-snowy-24.vercel.app
+```
+
+Variables minimas del frontend:
+
+```text
+VITE_API_URL=https://backend-eight-snowy-24.vercel.app
+REACT_APP_API_URL=https://backend-eight-snowy-24.vercel.app
+REACT_APP_MP_BACK_URL_BASE=https://frontend-theta-rosy-97.vercel.app
+```
+
+Despues de importar el respaldo `.sql` en el MySQL remoto y desplegar ambos proyectos, el panel administrador puede iniciar sesion y consultar usuarios, solicitudes, colegiados y pagos.
+
 ## Backend
 
 ```bash

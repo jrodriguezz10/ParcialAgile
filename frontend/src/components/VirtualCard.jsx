@@ -1,6 +1,5 @@
 import { UserRound } from "lucide-react";
 import { useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import cipLogo from "../assets/cip-logo.png";
 import { formatDate } from "../utils/format";
 
@@ -14,23 +13,9 @@ function CardPhoto({ src }) {
   return <img src={src} crossOrigin="anonymous" alt="Foto del colegiado" onError={() => setFailed(true)} />;
 }
 
-function publicFrontendOrigin() {
-  const configured = import.meta.env.VITE_PUBLIC_FRONTEND_URL || import.meta.env.VITE_FRONTEND_URL || "";
-  if (configured) return configured.replace(/\/+$/, "");
-  if (typeof window !== "undefined") return window.location.origin;
-  return "";
-}
-
-function verificationUrl(member) {
-  const code = member?.verification_code;
-  if (code) return `${publicFrontendOrigin()}/verificar/${code}`;
-  return member?.verify_url || "";
-}
-
 export function VirtualCard({ cardRef, user, application, member }) {
   const enabled = member.status === "HABILITADO";
   const photoUrl = application?.photo_url || member?.photo_url || user?.photo_url;
-  const qrUrl = verificationUrl(member);
 
   return (
     <div className="card-frame">
@@ -65,10 +50,6 @@ export function VirtualCard({ cardRef, user, application, member }) {
                 <b>{enabled ? "HABILITADO" : "INHABILITADO"}</b>
               </p>
             </div>
-          </div>
-          <div className="qr-box">
-            <QRCodeSVG value={qrUrl} size={78} level="M" />
-            <span>VERIFICAR</span>
           </div>
         </div>
         <footer>

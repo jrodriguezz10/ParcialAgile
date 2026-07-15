@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const { currentPeriod, isValidPeriod } = require("../utils/dates");
-const { fileUrl, frontendUrl, storedPath } = require("../utils/files");
+const { fileDataUrl, fileUrl, frontendUrl, shouldStoreUploadsInDatabase, storedPath } = require("../utils/files");
 const { isValidEmail, normalizeDni } = require("../utils/text");
 const { createMemberForApprovedApplication, refreshMemberStatus } = require("./members.service");
 const { createExternalReference, createMercadoPagoPreference } = require("./payments.service");
@@ -31,18 +31,19 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
   const address = String(body.address || "").trim();
   const profession = String(body.profession || "").trim();
   const password = String(body.password || dni || "123456");
-  const photoPath = storedPath(files?.photo?.[0]) || null;
-  const degreePdfPath = storedPath(files?.degreePdf?.[0]) || null;
-  const receiptPath = storedPath(files?.receipt?.[0]) || null;
+  const storeFilesInDatabase = shouldStoreUploadsInDatabase();
+  const photoPath = (storeFilesInDatabase ? fileDataUrl(files?.photo?.[0]) : storedPath(files?.photo?.[0])) || null;
+  const degreePdfPath = (storeFilesInDatabase ? fileDataUrl(files?.degreePdf?.[0]) : storedPath(files?.degreePdf?.[0])) || null;
+  const receiptPath = (storeFilesInDatabase ? fileDataUrl(files?.receipt?.[0]) : storedPath(files?.receipt?.[0])) || null;
   const paymentPeriod = isValidPeriod(body.payment_period_month) ? body.payment_period_month : currentPeriod();
   const paymentMethod = String(body.payment_method || "EFECTIVO").trim().toUpperCase();
   const paymentAmount = 20;
 
   if (dni.length !== 8) throw validationError("DNI invalido.");
   if (!profession) throw validationError("Completa la profesion.");
-  if (!/^\d{9}$/.test(phone)) throw validationError("El telefono debe tener 9 digitos.");
+  if (phone && !/^\d{9}$/.test(phone)) throw validationError("El telefono debe tener 9 digitos.");
   if (!isValidEmail(email)) throw validationError("Correo invalido.");
-  if (password.length < 6) throw validationError("La clave debe tener al menos 6 caracteres.");
+  if (body.password && password.length < 6) throw validationError("La clave debe tener al menos 6 caracteres.");
   if (!degreePdfPath) throw validationError("Sube el PDF del titulo profesional.");
   if (!["EFECTIVO", "MERCADO_PAGO"].includes(paymentMethod)) {
     throw validationError("Selecciona un metodo de pago valido.");
@@ -72,8 +73,8 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
         dniIdentity.paternal_last_name || null,
         dniIdentity.maternal_last_name || null,
         email,
-        phone,
-        address,
+        phone || null,
+        address || null,
         profession,
         passwordHash,
       ]
@@ -167,7 +168,6 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
         external_reference: externalReference,
       },
       ...mercadoPago,
-      initial_password: password,
       dni_source: "api",
     };
   } catch (error) {

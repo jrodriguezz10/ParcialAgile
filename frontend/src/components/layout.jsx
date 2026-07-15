@@ -1,6 +1,6 @@
 import { Bell, LogOut, Search, Send } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { BrandMark, Button, Metric, StatusBadge } from "./ui";
 import cipHeroColegiate from "../assets/cip-hero-colegiate.jpg";
 import cipHeroRedes from "../assets/cip-hero-redes.jpg";
@@ -21,11 +21,7 @@ export function AuthLayout() {
           <div className="hero-copy">
             <span className="eyebrow">Colegiacion digital CIP</span>
             <h1>Inicia tu colegiatura profesional</h1>
-            <p>Consulta con DNI, presenta tu solicitud y verifica tu carnet virtual con QR.</p>
-            <div className="hero-actions">
-              <Link to="/solicitud">Consultar solicitud</Link>
-              <Link to="/solicitud">Hacer solicitud</Link>
-            </div>
+            <p>Consulta con DNI, presenta tu solicitud y revisa tu carnet virtual.</p>
           </div>
         </div>
       </section>
@@ -43,7 +39,7 @@ export function AuthLayout() {
           <div>
             <span>Colegiatura</span>
             <h3>Carnet virtual verificable</h3>
-            <p>QR publico, numero de colegiatura, estado vigente y descarga del carnet en PDF.</p>
+            <p>Numero de colegiatura y estado vigente desde el portal.</p>
           </div>
         </article>
         <article className="pay-panel">
@@ -121,13 +117,13 @@ export function SolicitudLayout({ onAuthenticated }) {
       <section className="auth-page-section solicitud-page">
         <div className="auth-page-copy">
           <span className="eyebrow">Colegiacion digital CIP</span>
-          <h1>Solicitud</h1>
+          <h1>Colegiatura</h1>
           <p>Consulta el estado con DNI. Si no existe una solicitud, abre el portal de colegiatura para completar tus datos y documentos.</p>
         </div>
         <section className="public-request-section solicitud-card" id="solicitud">
           <div className="section-title">
             <div>
-              <span>Solicitud</span>
+              <span>Colegiatura</span>
               <h2>Consulta por DNI</h2>
             </div>
           </div>
@@ -180,6 +176,9 @@ export function AuthPageLayout({ title, subtitle, children }) {
           <span className="eyebrow">Colegiacion digital CIP</span>
           <h1>{title}</h1>
           <p>{subtitle}</p>
+          <p className="demo-disclaimer">
+            Proyecto academico de demostracion. No es un portal oficial del Colegio de Ingenieros del Peru y no debe usarse con credenciales institucionales reales.
+          </p>
         </div>
         <section className="auth-card auth-page-card" id="auth-card">
           {children}
@@ -191,17 +190,13 @@ export function AuthPageLayout({ title, subtitle, children }) {
 }
 
 export function CipPublicHeader() {
+  const { pathname } = useLocation();
+  const isHome = pathname === "/";
+  const isColegiatura = pathname === "/solicitud" || pathname === "/registro" || pathname === "/interesado";
+
   return (
     <header className="cip-header">
       <div className="cip-topline">
-        <nav>
-          <Link to="/">CIPVirtual</Link>
-          <Link to="/solicitud">Solicitud</Link>
-          <a href="#">Busqueda de Colegiados</a>
-          <a href="#">Servicios</a>
-          <a href="#">TNE</a>
-          <a className="highlight" href="#">IngTV</a>
-        </nav>
         <div className="public-auth-actions">
           <Link to="/ingresar">Iniciar sesion</Link>
         </div>
@@ -209,10 +204,10 @@ export function CipPublicHeader() {
       <div className="cip-mainnav">
         <BrandMark compact />
         <nav>
-          <Link className="active" to="/">Inicio</Link>
+          <Link className={isHome ? "active" : ""} to="/">Inicio</Link>
           <a href="#">Institucional</a>
           <a href="#">Consejos departamentales</a>
-          <Link to="/solicitud">Solicitud</Link>
+          <Link className={isColegiatura ? "active" : ""} to="/solicitud">Colegiatura</Link>
           <a href="#">Publicaciones</a>
           <a href="#contacto">Contactenos</a>
         </nav>

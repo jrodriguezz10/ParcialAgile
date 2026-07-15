@@ -15,9 +15,9 @@ export async function downloadCardPdf(element, filename) {
 }
 
 const ISSUER = {
-  name: "Colegio de Ingenieros del Peru",
-  ruc: "RUC por configurar",
-  address: "Direccion fiscal por configurar",
+  name: "COLEGIO DE INGENIEROS DEL PERU CONSEJO NACIONAL",
+  ruc: "RUC 20138086438",
+  address: "AV. AREQUIPA URB. MIRAFLORES 4947 MIRAFLORES - LIMA - LIMA",
 };
 
 function safeText(value, fallback = "-") {
@@ -64,12 +64,12 @@ export function downloadPaymentReceiptPdf(payment, payer = {}) {
   doc.rect(12, 12, 186, 273);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
-  doc.text(ISSUER.name.toUpperCase(), 18, 25);
+  doc.setFontSize(11);
+  doc.text(split(doc, ISSUER.name, 108), 18, 24);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(ISSUER.ruc, 18, 32);
-  doc.text(ISSUER.address, 18, 38);
+  doc.text(ISSUER.ruc, 18, 36);
+  doc.text(split(doc, ISSUER.address, 108), 18, 42);
 
   doc.setDrawColor(160, 20, 36);
   doc.rect(136, 18, 52, 31);
@@ -103,7 +103,7 @@ export function downloadPaymentReceiptPdf(payment, payer = {}) {
   doc.rect(18, 114, 170, 34);
   doc.text("1", 24, 124);
   const concept = payment.payment_type === "INSCRIPCION"
-    ? "Inscripcion CIP"
+    ? "Pago por derecho a carnet CIP"
     : `Mensualidad CIP periodo ${safeText(payment.period_month)}`;
   doc.text(split(doc, `${concept} (${safeText(payment.method)})`, 88), 42, 124);
   doc.text(formatMoney(amount), 145, 124, { align: "right" });
@@ -119,9 +119,7 @@ export function downloadPaymentReceiptPdf(payment, payer = {}) {
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text(`Referencia: ${safeText(payment.external_reference || payment.mp_payment_id || payment.id)}`, 18, 200);
-  doc.text("Representacion impresa. La validez tributaria exige emision en SEE/SUNAT o proveedor autorizado.", 18, 210);
-  doc.text("Formato basado en campos habituales de comprobantes SUNAT: emisor, adquirente, serie, fecha, detalle y totales.", 18, 216);
+  doc.text("Comprobante generado por el sistema de colegiacion digital.", 18, 205);
 
   doc.save(`comprobante-${serie}-${number}.pdf`);
 }

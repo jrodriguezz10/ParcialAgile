@@ -1,31 +1,29 @@
-import { RefreshCw, Save, UserPlus } from "lucide-react";
-import { Button, DataTable, StatusBadge } from "../../../components/ui";
+import { RefreshCw, Save, Search, UserPlus } from "lucide-react";
+import { Button, DataTable } from "../../../components/ui";
 import { formatDate } from "../../../utils/format";
+import { CIP_BRANCHES } from "../../../constants/catalogs";
 
-// Modulo Configuracion: administradores y estado manual del colegiado.
+// Modulo Configuracion: administradores del sistema.
 export function AdminSettingsPanel({
   activeModule,
   admins,
-  members,
   adminForm,
   newAdmin,
-  selectedMember,
-  statusForm,
+  adminLookupLoading,
+  newAdminLookupLoading,
   onRefresh,
   onAdminFormChange,
   onNewAdminChange,
-  onStatusFormChange,
+  onLookupAdminDni,
   onSaveProfile,
   onCreateAdmin,
-  onUpdateMemberStatus,
-  onSelectMember,
 }) {
   return (
     <section className={`panel ${activeModule === "configuracion" ? "" : "module-hidden"}`} id="admin-configuracion">
       <div className="section-title">
         <div>
-          <span>Configuración</span>
-          <h2>Usuarios administradores y estados</h2>
+          <span>Configuracion</span>
+          <h2>Usuarios administradores</h2>
         </div>
         <Button type="button" icon={RefreshCw} variant="ghost" onClick={onRefresh}>
           Actualizar
@@ -47,13 +45,26 @@ export function AdminSettingsPanel({
             </label>
             <label>
               DNI
-              <input
-                value={adminForm.dni}
-                onChange={(event) => onAdminFormChange((current) => ({ ...current, dni: event.target.value.replace(/\D/g, "").slice(0, 8) }))}
-                inputMode="numeric"
-                maxLength={8}
-                required
-              />
+              <div className="input-action">
+                <input
+                  value={adminForm.dni}
+                  onChange={(event) =>
+                    onAdminFormChange((current) => ({ ...current, dni: event.target.value.replace(/\D/g, "").slice(0, 8), name: "" }))
+                  }
+                  inputMode="numeric"
+                  maxLength={8}
+                  required
+                />
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => onLookupAdminDni("current")}
+                  disabled={adminLookupLoading || adminForm.dni.length !== 8}
+                  aria-label="Consultar DNI en RENIEC"
+                >
+                  <Search size={18} />
+                </button>
+              </div>
             </label>
             <label>
               Correo
@@ -65,20 +76,27 @@ export function AdminSettingsPanel({
               />
             </label>
             <label>
-              Teléfono
-              <input value={adminForm.phone} onChange={(event) => onAdminFormChange((current) => ({ ...current, phone: event.target.value }))} />
+              Telefono
+              <input
+                value={adminForm.phone}
+                onChange={(event) => onAdminFormChange((current) => ({ ...current, phone: event.target.value.replace(/\D/g, "").slice(0, 9) }))}
+                inputMode="numeric"
+                maxLength={9}
+                required
+              />
             </label>
             <label>
               Cargo
-              <input value={adminForm.role} onChange={(event) => onAdminFormChange((current) => ({ ...current, role: event.target.value }))} required />
+              <select value={adminForm.role} onChange={(event) => onAdminFormChange((current) => ({ ...current, role: event.target.value }))}><option value="ADMIN_SEDE">Administrador de sede</option><option value="CAJERO">Cajero</option></select>
             </label>
+            <label>Sede<select value={adminForm.branch} onChange={(event) => onAdminFormChange((current) => ({ ...current, branch: event.target.value }))}>{CIP_BRANCHES.map((branch) => <option key={branch}>{branch}</option>)}</select></label>
             <label className="wide">
               Nueva clave
               <input
                 type="password"
                 value={adminForm.password}
                 onChange={(event) => onAdminFormChange((current) => ({ ...current, password: event.target.value }))}
-                placeholder="Dejar vacío para no cambiar"
+                placeholder="Dejar vacio para no cambiar"
               />
             </label>
           </div>
@@ -99,13 +117,26 @@ export function AdminSettingsPanel({
             </label>
             <label>
               DNI
-              <input
-                value={newAdmin.dni}
-                onChange={(event) => onNewAdminChange((current) => ({ ...current, dni: event.target.value.replace(/\D/g, "").slice(0, 8) }))}
-                inputMode="numeric"
-                maxLength={8}
-                required
-              />
+              <div className="input-action">
+                <input
+                  value={newAdmin.dni}
+                  onChange={(event) =>
+                    onNewAdminChange((current) => ({ ...current, dni: event.target.value.replace(/\D/g, "").slice(0, 8), name: "" }))
+                  }
+                  inputMode="numeric"
+                  maxLength={8}
+                  required
+                />
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => onLookupAdminDni("new")}
+                  disabled={newAdminLookupLoading || newAdmin.dni.length !== 8}
+                  aria-label="Consultar DNI en RENIEC"
+                >
+                  <Search size={18} />
+                </button>
+              </div>
             </label>
             <label>
               Correo
@@ -117,13 +148,20 @@ export function AdminSettingsPanel({
               />
             </label>
             <label>
-              Teléfono
-              <input value={newAdmin.phone} onChange={(event) => onNewAdminChange((current) => ({ ...current, phone: event.target.value }))} />
+              Telefono
+              <input
+                value={newAdmin.phone}
+                onChange={(event) => onNewAdminChange((current) => ({ ...current, phone: event.target.value.replace(/\D/g, "").slice(0, 9) }))}
+                inputMode="numeric"
+                maxLength={9}
+                required
+              />
             </label>
             <label>
               Cargo
-              <input value={newAdmin.role} onChange={(event) => onNewAdminChange((current) => ({ ...current, role: event.target.value }))} required />
+              <select value={newAdmin.role} onChange={(event) => onNewAdminChange((current) => ({ ...current, role: event.target.value }))}><option value="ADMIN_SEDE">Administrador de sede</option><option value="CAJERO">Cajero</option></select>
             </label>
+            <label>Sede<select value={newAdmin.branch} onChange={(event) => onNewAdminChange((current) => ({ ...current, branch: event.target.value }))}>{CIP_BRANCHES.map((branch) => <option key={branch}>{branch}</option>)}</select></label>
             <label>
               Clave
               <input
@@ -138,81 +176,26 @@ export function AdminSettingsPanel({
         </form>
       </div>
 
-      <div className="admin-config-grid">
-        <div className="settings-form">
-          <div className="section-title compact-title">
-            <div>
-              <span>Administradores</span>
-              <h2>Accesos registrados</h2>
-            </div>
+      <div className="settings-form">
+        <div className="section-title compact-title">
+          <div>
+            <span>Administradores</span>
+            <h2>Accesos registrados</h2>
           </div>
-          <DataTable
-            columns={["Nombre", "DNI", "Correo", "Teléfono", "Cargo", "Creado"]}
-            rows={admins.map((admin) => [
-              admin.name,
-              admin.dni || "Sin dato",
-              admin.email,
-              admin.phone || "Sin dato",
-              admin.role || "Administrador",
-              formatDate(admin.created_at),
-            ])}
-            empty="No hay administradores registrados."
-          />
         </div>
-
-        <form className="settings-form" onSubmit={onUpdateMemberStatus}>
-          <div className="section-title compact-title">
-            <div>
-              <span>Colegiado</span>
-              <h2>Cambiar estado del carnet</h2>
-            </div>
-            {selectedMember && <StatusBadge status={selectedMember.status} />}
-          </div>
-          <div className="settings-grid">
-            <label className="wide">
-              Colegiado
-              <select
-                value={selectedMember?.id || ""}
-                onChange={(event) => {
-                  const member = members.find((item) => String(item.id) === event.target.value);
-                  if (member) onSelectMember(member);
-                }}
-              >
-                <option value="">Selecciona un colegiado</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.full_name} - {member.membership_number}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Estado
-              <select
-                value={statusForm.status}
-                onChange={(event) => onStatusFormChange((current) => ({ ...current, status: event.target.value }))}
-                disabled={!selectedMember}
-              >
-                <option value="AUTO">Automático por mensualidad</option>
-                <option value="HABILITADO">Habilitado manual</option>
-                <option value="INHABILITADO">Inhabilitado manual</option>
-              </select>
-            </label>
-            <label className="wide">
-              Motivo
-              <textarea
-                rows={4}
-                value={statusForm.reason}
-                onChange={(event) => onStatusFormChange((current) => ({ ...current, reason: event.target.value }))}
-                placeholder="Ejemplo: regularización administrativa o falta de documento."
-                disabled={!selectedMember}
-              />
-            </label>
-          </div>
-          <Button icon={Save} disabled={!selectedMember}>
-            Guardar estado
-          </Button>
-        </form>
+        <DataTable
+          columns={["Nombre", "DNI", "Correo", "Telefono", "Cargo", "Sede", "Creado"]}
+          rows={admins.map((admin) => [
+            admin.name,
+            admin.dni || "Sin dato",
+            admin.email,
+            admin.phone || "Sin dato",
+            admin.role || "Administrador",
+            admin.branch || "Consejo Nacional - Lima",
+            formatDate(admin.created_at),
+          ])}
+          empty="No hay administradores registrados."
+        />
       </div>
     </section>
   );

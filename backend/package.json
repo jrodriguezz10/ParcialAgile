@@ -5,7 +5,9 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "db:export": "powershell -ExecutionPolicy Bypass -File scripts/export-db.ps1",
+    "db:migrate:tidb": "node scripts/migrate-kv-to-tidb.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -16,6 +18,7 @@
     "multer": "^2.0.2",
     "mysql2": "^3.11.5",
     "nodemailer": "^8.0.7"
+    ,"pg": "^8.13.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

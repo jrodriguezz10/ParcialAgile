@@ -1,11 +1,11 @@
-import { Download, ReceiptText, RefreshCw, Search, X } from "lucide-react";
+import { ReceiptText, RefreshCw, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { VirtualCard } from "../../../components/VirtualCard";
 import { Button, DataTable, StatusBadge } from "../../../components/ui";
 import { formatDate } from "../../../utils/format";
-import { downloadCardPdf, downloadPaymentReceiptPdf } from "../../../utils/pdf";
+import { downloadPaymentReceiptPdf } from "../../../utils/pdf";
 
-// Modulo Padron: consulta de colegiados, pagos manuales y descarga de carnet.
+// Modulo Padron: consulta de colegiados y pagos mensuales.
 export function AdminMembersPanel({
   activeModule,
   members,
@@ -13,13 +13,14 @@ export function AdminMembersPanel({
   selectedMember,
   memberPayments,
   manualPeriod,
+  paymentCount,
   memberCardRef,
   onFilterChange,
   onRefresh,
   onOpenPayments,
   onManualPeriodChange,
+  onPaymentCountChange,
   onRegisterPayment,
-  onOpenStatus,
   onOpenCard,
   onCloseMember,
 }) {
@@ -85,9 +86,6 @@ export function AdminMembersPanel({
             <button className="inline-action" onClick={() => onOpenPayments(member)}>
               Historial
             </button>
-            <button className="inline-action" onClick={() => onOpenStatus(member)}>
-              Estado
-            </button>
             <button className="inline-action" onClick={() => onOpenCard(member)}>
               Carnet
             </button>
@@ -119,7 +117,8 @@ export function AdminMembersPanel({
                 </div>
                 <form className="payment-controls" onSubmit={onRegisterPayment}>
                   <input type="month" value={manualPeriod} onChange={(event) => onManualPeriodChange(event.target.value)} />
-                  <Button icon={ReceiptText}>Registrar pago</Button>
+                  <input type="number" min="1" max="60" value={paymentCount} onChange={(event) => onPaymentCountChange(Math.max(1, Number(event.target.value) || 1))} aria-label="Cantidad de mensualidades" />
+                  <Button icon={ReceiptText}>Cobrar {paymentCount} mensualidad{paymentCount > 1 ? "es" : ""}</Button>
                 </form>
               </div>
               <DataTable
@@ -144,14 +143,6 @@ export function AdminMembersPanel({
             </div>
             <div className="member-card-preview">
               <VirtualCard cardRef={memberCardRef} user={selectedMember} application={{ photo_url: selectedMember.photo_url }} member={selectedMember} />
-              <Button
-                type="button"
-                icon={Download}
-                variant="secondary"
-                onClick={() => downloadCardPdf(memberCardRef.current, `carnet-${selectedMember.membership_number}.pdf`)}
-              >
-                Descargar carnet físico / PDF
-              </Button>
             </div>
           </div>
         </div>

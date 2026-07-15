@@ -1,4 +1,4 @@
-import { CreditCard, WalletCards } from "lucide-react";
+import { CreditCard, Download, WalletCards } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { BrandMark, Button } from "../components/ui";
@@ -11,6 +11,8 @@ export default function ResultadoPago() {
   const navigate = useNavigate();
   const [message, setMessage] = useState("Confirmando pago con Mercado Pago...");
   const [done, setDone] = useState(false);
+  const [payment, setPayment] = useState(null);
+  const [payer, setPayer] = useState(null);
   const token = getUserToken();
 
   useEffect(() => {
@@ -36,7 +38,10 @@ export default function ResultadoPago() {
     })
       .then((data) => {
         setMessage(data.message || "Pago confirmado.");
-        if (data.payment) downloadPaymentReceiptPdf(data.payment, data.user || {});
+        if (data.payment) {
+          setPayment(data.payment);
+          setPayer(data.user || {});
+        }
       })
       .catch((error) => setMessage(error.message))
       .finally(() => setDone(true));
@@ -52,6 +57,11 @@ export default function ResultadoPago() {
         <h1>Resultado de pago</h1>
         <p>{message}</p>
         <div className="button-row center-row">
+          {payment && (
+            <Button type="button" icon={Download} onClick={() => downloadPaymentReceiptPdf(payment, payer || {})}>
+              Descargar comprobante
+            </Button>
+          )}
           <Button type="button" icon={WalletCards} onClick={() => navigate("/interesado")}>
             Volver a mi portal
           </Button>

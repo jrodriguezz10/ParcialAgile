@@ -1,5 +1,8 @@
 node_modules
 uploads
+backups
 .env
 
 .vercel
+
+.env*

@@ -207,6 +207,10 @@
     width: 100%;
   }
 
+  .payment-controls input {
+    max-width: none;
+  }
+
   .doc-preview img {
     width: 100%;
     height: 220px;

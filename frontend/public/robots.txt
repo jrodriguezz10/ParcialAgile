@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /ingresar
+Disallow: /interesado
+Disallow: /checkout
+Disallow: /verificar
+
+Sitemap: https://colegioingenierosdelperu.online/sitemap.xml

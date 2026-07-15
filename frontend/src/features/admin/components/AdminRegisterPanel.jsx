@@ -1,7 +1,9 @@
 import { CreditCard, Download, Search } from "lucide-react";
 import { VirtualCard } from "../../../components/VirtualCard";
 import { Button, StatusBadge } from "../../../components/ui";
-import { downloadCardPdf, downloadPaymentReceiptPdf } from "../../../utils/pdf";
+import { downloadPaymentReceiptPdf } from "../../../utils/pdf";
+import { CareerField } from "../../../components/CareerField";
+import { CIP_BRANCHES } from "../../../constants/catalogs";
 
 // Modulo Registro: alta manual de colegiados y previsualizacion del carnet.
 export function AdminRegisterPanel({
@@ -76,39 +78,14 @@ export function AdminRegisterPanel({
               />
             </label>
             <label>
-              Teléfono
-              <input
-                value={manualMember.phone}
-                onChange={(event) => onManualMemberChange((current) => ({ ...current, phone: event.target.value.replace(/\D/g, "").slice(0, 9) }))}
-                inputMode="numeric"
-                maxLength={9}
-                pattern="[0-9]{9}"
-                required
-              />
-            </label>
-            <label>
               Profesión
-              <input
-                value={manualMember.profession}
-                onChange={(event) => onManualMemberChange((current) => ({ ...current, profession: event.target.value }))}
-                required
-              />
+              <CareerField value={manualMember.profession} onChange={(value) => onManualMemberChange((current) => ({ ...current, profession: value }))} />
             </label>
             <label>
-              Clave inicial
-              <input
-                type="password"
-                value={manualMember.password}
-                onChange={(event) => onManualMemberChange((current) => ({ ...current, password: event.target.value }))}
-                placeholder="Opcional; si se deja vacía usa el DNI"
-              />
-            </label>
-            <label className="wide">
-              Dirección
-              <input
-                value={manualMember.address}
-                onChange={(event) => onManualMemberChange((current) => ({ ...current, address: event.target.value }))}
-              />
+              Sede
+              <select value={manualMember.branch} onChange={(event) => onManualMemberChange((current) => ({ ...current, branch: event.target.value }))} required>
+                {CIP_BRANCHES.map((branch) => <option key={branch}>{branch}</option>)}
+              </select>
             </label>
             <div className="document-upload-grid wide">
               <label>
@@ -176,14 +153,6 @@ export function AdminRegisterPanel({
               {createdMember.registration_payment?.status === "PAGADO" ? (
                 <>
                   <VirtualCard cardRef={createdCardRef} user={createdMember} application={{ photo_url: createdMember.photo_url }} member={createdMember} />
-                  <Button
-                    type="button"
-                    icon={Download}
-                    variant="secondary"
-                    onClick={() => downloadCardPdf(createdCardRef.current, `carnet-${createdMember.membership_number}.pdf`)}
-                  >
-                    Descargar carnet físico / PDF
-                  </Button>
                   <Button
                     type="button"
                     icon={Download}

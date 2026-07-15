@@ -5,10 +5,8 @@ export const blankManualMember = {
   paternal_last_name: "",
   maternal_last_name: "",
   email: "",
-  phone: "",
-  address: "",
   profession: "",
-  password: "",
+  branch: "Consejo Nacional - Lima",
 };
 
 export function onlyDniDigits(value) {

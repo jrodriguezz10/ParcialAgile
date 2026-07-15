@@ -1,5 +1,7 @@
-import { AlertTriangle, Camera, FileText, ReceiptText, Search, Upload } from "lucide-react";
+import { AlertTriangle, Camera, FileText, ReceiptText, Upload } from "lucide-react";
 import { Button, FileInput, StatusBadge } from "../../../components/ui";
+import { CareerField } from "../../../components/CareerField";
+import { CIP_BRANCHES } from "../../../constants/catalogs";
 
 // Modulo Solicitud: datos personales, consulta DNI y carga de documentos.
 export function UserApplicationPanel({
@@ -19,10 +21,21 @@ export function UserApplicationPanel({
   onlyDniDigits,
 }) {
   const hasApplication = Boolean(application);
-  const canEditApplication = !hasApplication ? unlocked : application.status === "OBSERVADO";
+  const mustReplaceDocuments = application?.status === "OBSERVADO" || application?.status === "RECHAZADO";
+  const canEditApplication = !hasApplication ? unlocked : mustReplaceDocuments;
   const shouldShowStart = !hasApplication && lookupMessage && !unlocked;
   const fieldsDisabled = !canEditApplication;
-  const hasPaymentProof = Boolean(files.receipt || application?.receipt_url);
+  const hasRequiredInfo = Boolean(
+    form.dni &&
+      form.full_name?.trim() &&
+      form.email?.trim() &&
+      form.profession?.trim()
+  );
+  const hasRequiredFiles = Boolean(
+    (files.photo || (!mustReplaceDocuments && application?.photo_url)) &&
+      (files.degreePdf || (!mustReplaceDocuments && application?.degree_pdf_url)) &&
+      (files.receipt || (!mustReplaceDocuments && application?.receipt_url))
+  );
 
   return (
     <section className={`panel ${activeModule === "solicitud" ? "" : "module-hidden"}`} id="solicitud">
@@ -66,33 +79,24 @@ export function UserApplicationPanel({
         <div className="two-cols">
           <label>
             DNI
-            <div className="input-action">
-              <input
-                value={form.dni || ""}
-                onChange={(event) => onUpdateForm("dni", onlyDniDigits(event.target.value))}
-                inputMode="numeric"
-                maxLength={8}
-                required
-              />
-              <button type="button" className="icon-btn" onClick={onLookupDni} aria-label="Buscar datos en RENIEC">
-                <Search size={18} />
-              </button>
-            </div>
+            <input value={form.dni || ""} inputMode="numeric" maxLength={8} disabled required />
           </label>
           <label>
             Profesion
-            <input
-              value={form.profession || ""}
-              onChange={(event) => onUpdateForm("profession", event.target.value)}
-              disabled={fieldsDisabled}
-              required
-            />
+            <CareerField value={form.profession || ""} onChange={(value) => onUpdateForm("profession", value)} disabled={fieldsDisabled} />
           </label>
         </div>
 
         <label>
+          Sede de atencion
+          <select value={form.branch || "Consejo Nacional - Lima"} onChange={(event) => onUpdateForm("branch", event.target.value)} disabled={fieldsDisabled} required>
+            {CIP_BRANCHES.map((branch) => <option key={branch}>{branch}</option>)}
+          </select>
+        </label>
+
+        <label>
           Nombres completos
-          <input value={form.full_name || ""} onChange={(event) => onUpdateForm("full_name", event.target.value)} disabled={fieldsDisabled} required />
+          <input value={form.full_name || ""} disabled required />
         </label>
 
         <label>
@@ -113,7 +117,7 @@ export function UserApplicationPanel({
             icon={Camera}
             label="Foto tipo carnet"
             accept="image/png,image/jpeg,image/webp"
-            existing={application?.photo_url}
+            existing={mustReplaceDocuments ? null : application?.photo_url}
             disabled={fieldsDisabled}
             onChange={(file) => onFilesChange({ ...files, photo: file })}
           />
@@ -121,7 +125,7 @@ export function UserApplicationPanel({
             icon={FileText}
             label="Titulo profesional PDF"
             accept="application/pdf"
-            existing={application?.degree_pdf_url}
+            existing={mustReplaceDocuments ? null : application?.degree_pdf_url}
             disabled={fieldsDisabled}
             onChange={(file) => onFilesChange({ ...files, degreePdf: file })}
           />
@@ -129,7 +133,7 @@ export function UserApplicationPanel({
             icon={ReceiptText}
             label="Comprobante de pago"
             accept="application/pdf,image/png,image/jpeg,image/webp"
-            existing={application?.receipt_url}
+            existing={mustReplaceDocuments ? null : application?.receipt_url}
             disabled={fieldsDisabled}
             onChange={(file) => onFilesChange({ ...files, receipt: file })}
           />
@@ -141,8 +145,8 @@ export function UserApplicationPanel({
               Hacer solicitud
             </Button>
           ) : (
-            <Button icon={Upload} disabled={!canEditApplication || !hasPaymentProof || application?.status === "APROBADO"}>
-              {hasPaymentProof ? "Enviar solicitud" : "Adjunta comprobante para enviar"}
+            <Button icon={Upload} disabled={!canEditApplication || !hasRequiredInfo || !hasRequiredFiles || application?.status === "APROBADO"}>
+              {hasRequiredInfo && hasRequiredFiles ? "Enviar solicitud" : "Completa todos los campos"}
             </Button>
           )}
         </div>

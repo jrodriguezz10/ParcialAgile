@@ -1,5 +1,5 @@
 const { getPool } = require("../config/database");
-const { comparePeriods, currentPeriod, isValidPeriod, periodFromDate } = require("../utils/dates");
+const { comparePeriods, currentPeriod, isValidPeriod, periodFromDate, previousPeriod } = require("../utils/dates");
 const {
   approveCheckoutByExternalReference,
   createBatchExternalReference,
@@ -9,13 +9,62 @@ const {
   getPendingPeriods,
 } = require("../services/payments.service");
 const { refreshMemberStatus } = require("../services/members.service");
+const kv = require("../services/kv.service");
+const pgStore = require("../services/postgres-store.service");
+const { isValidEmail, normalizeDni } = require("../utils/text");
+
+function store() {
+  return kv.enabled() ? kv : pgStore;
+}
+
+function addMonths(period, amount) {
+  const [year, month] = String(period).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + amount, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function periodRange(from, to) {
+  const periods = [];
+  if (!isValidPeriod(from) || !isValidPeriod(to)) return periods;
+  for (let cursor = from; comparePeriods(cursor, to) <= 0; cursor = addMonths(cursor, 1)) {
+    periods.push(cursor);
+  }
+  return periods;
+}
+
+async function getPgUserAndMember(req) {
+  const dataStore = store();
+  const users = await dataStore.listUsers("");
+  const user = users.find((item) => String(item.id) === String(req.auth.sub) || item.dni === req.auth.dni) || null;
+  const members = await dataStore.listMembers("TODOS");
+  const member = members.find((item) => String(item.user_id) === String(user?.id || req.auth.sub) || item.dni === req.auth.dni) || null;
+  return { user, member };
+}
+
+async function getPgPendingPeriods(member) {
+  if (!member) return [];
+  const enrollmentPeriod = periodFromDate(member.enrollment_date);
+  const overdueThrough = previousPeriod(currentPeriod());
+  if (comparePeriods(enrollmentPeriod, overdueThrough) > 0) return [];
+  const paid = new Set((await store().listMemberPayments(member.id))
+    .filter((payment) => payment.status === "PAGADO" && payment.payment_type === "MENSUALIDAD")
+    .map((payment) => payment.period_month));
+  return periodRange(enrollmentPeriod, overdueThrough).filter((period) => !paid.has(period));
+}
 
 async function createInscriptionPayment(req, res) {
+  const bodyDni = normalizeDni(req.body.dni || req.auth.dni);
+  const bodyEmail = String(req.body.email || req.auth.email || "").trim().toLowerCase();
+  const bodyFullName = String(req.body.full_name || req.auth.name || "").trim();
+  if (bodyDni.length !== 8) return res.status(422).json({ message: "Ingresa un DNI valido antes de pagar." });
+  if (!bodyFullName) return res.status(422).json({ message: "Ingresa nombres completos antes de pagar." });
+  if (bodyEmail && !isValidEmail(bodyEmail)) return res.status(422).json({ message: "Usa un correo valido antes de pagar." });
+
   const user = {
     id: req.auth.sub,
-    dni: req.auth.dni,
-    full_name: req.auth.name || `DNI ${req.auth.dni || ""}`.trim(),
-    email: req.auth.email || `${req.auth.dni || "solicitante"}@pendiente.cip.local`,
+    dni: bodyDni,
+    full_name: bodyFullName,
+    email: bodyEmail,
   };
   const checkout = {
     amount: 20,
@@ -36,6 +85,19 @@ async function createInscriptionPayment(req, res) {
 
 // Historial del interesado: pagos realizados, periodos pendientes y deuda total.
 async function listUserPayments(req, res) {
+  if (req.dbReady === false && (pgStore.enabled() || kv.enabled())) {
+    const { member } = await getPgUserAndMember(req);
+    if (!member) return res.json({ member: null, payments: [], pending_periods: [], debt_amount: 0 });
+    const payments = await store().listMemberPayments(member.id);
+    const pendingPeriods = await getPgPendingPeriods(member);
+    return res.json({
+      member,
+      payments,
+      pending_periods: pendingPeriods,
+      debt_amount: pendingPeriods.length * 20,
+    });
+  }
+
   let pool;
   try {
     pool = getPool();
@@ -66,6 +128,61 @@ async function listUserPayments(req, res) {
 
 // Checkout mensual: crea o reutiliza pago pendiente para un periodo concreto.
 async function createMonthlyPayment(req, res) {
+  if (req.dbReady === false && (pgStore.enabled() || kv.enabled())) {
+    const period = req.body.period_month || currentPeriod();
+    if (!isValidPeriod(period)) return res.status(422).json({ message: "Periodo invalido. Usa YYYY-MM." });
+
+    const { user, member } = await getPgUserAndMember(req);
+    if (!member) {
+      return res.status(409).json({ message: "Solo los colegiados aprobados pueden pagar mensualidad." });
+    }
+
+    const enrollmentPeriod = periodFromDate(member.enrollment_date);
+    if (comparePeriods(period, enrollmentPeriod) < 0) {
+      return res.status(422).json({ message: `Solo puedes pagar desde tu mes de inscripcion (${enrollmentPeriod}).` });
+    }
+
+    const existingPaid = (await store().listMemberPayments(member.id)).find(
+      (payment) => payment.period_month === period && payment.payment_type === "MENSUALIDAD" && payment.status === "PAGADO"
+    );
+    if (existingPaid) {
+      return res.json({ payment: existingPaid, message: "La mensualidad de este periodo ya esta pagada." });
+    }
+
+    const externalReference = createExternalReference(member.id, period);
+    let created = await store().createMemberPayment(member.id, period, 20, null, "MERCADO_PAGO", {
+      status: "PENDIENTE",
+      external_reference: externalReference,
+    });
+    const mp = await createMercadoPagoPreference(
+      {
+        ...created.payment,
+        amount: 20,
+        period_month: period,
+        external_reference: externalReference,
+        item_id: `mensualidad-${member.id}-${period}`,
+        title: `Mensualidad CIP ${period}`,
+        description: `Mensualidad CIP de S/ 20.00 - ${period}`,
+      },
+      user,
+      req
+    );
+    if (mp.preference_id) {
+      created = await store().createMemberPayment(member.id, period, 20, null, "MERCADO_PAGO", {
+        status: "PENDIENTE",
+        external_reference: externalReference,
+        mp_preference_id: mp.preference_id,
+      });
+    }
+    return res.status(201).json({
+      payment: created.payment,
+      member: created.member,
+      user,
+      ...mp,
+      message: mp.checkout_url ? "Redirigiendo a Mercado Pago." : mp.message || "No se pudo generar el checkout de Mercado Pago.",
+    });
+  }
+
   const pool = getPool();
   const period = req.body.period_month || currentPeriod();
   if (!isValidPeriod(period)) return res.status(422).json({ message: "Periodo invalido. Usa YYYY-MM." });
@@ -115,6 +232,53 @@ async function createMonthlyPayment(req, res) {
 
 // Checkout total: agrupa todas las mensualidades pendientes en una sola compra.
 async function createFullPayment(req, res) {
+  if (req.dbReady === false && (pgStore.enabled() || kv.enabled())) {
+    const { user, member } = await getPgUserAndMember(req);
+    if (!member) {
+      return res.status(409).json({ message: "Solo los colegiados aprobados pueden pagar mensualidades." });
+    }
+    const pendingPeriods = await getPgPendingPeriods(member);
+    if (!pendingPeriods.length) {
+      return res.json({ message: "No tienes mensualidades pendientes.", pending_periods: [], debt_amount: 0 });
+    }
+    const amount = pendingPeriods.length * 20;
+    const externalReference = createBatchExternalReference(member.id);
+    let payments = [];
+    for (const period of pendingPeriods) {
+      const created = await store().createMemberPayment(member.id, period, 20, null, "MERCADO_PAGO_TOTAL", {
+        status: "PENDIENTE",
+        external_reference: externalReference,
+      });
+      payments.push(created.payment);
+    }
+    const checkout = {
+      amount,
+      external_reference: externalReference,
+      item_id: `mensualidades-total-${member.id}`,
+      title: "Pago total de mensualidades CIP",
+      description: `Pago de ${pendingPeriods.length} mensualidad(es): ${pendingPeriods.join(", ")}`,
+    };
+    const mp = await createMercadoPagoPreference(checkout, user || member, req);
+    if (mp.preference_id) {
+      payments = [];
+      for (const period of pendingPeriods) {
+        const created = await store().createMemberPayment(member.id, period, 20, null, "MERCADO_PAGO_TOTAL", {
+          status: "PENDIENTE",
+          external_reference: externalReference,
+          mp_preference_id: mp.preference_id,
+        });
+        payments.push(created.payment);
+      }
+    }
+    return res.status(201).json({
+      message: mp.checkout_url ? "Redirigiendo a Mercado Pago." : mp.message || "No se pudo generar el checkout de Mercado Pago.",
+      payments,
+      pending_periods: pendingPeriods,
+      debt_amount: amount,
+      ...mp,
+    });
+  }
+
   const pool = getPool();
   const [[user]] = await pool.query("SELECT * FROM users WHERE id = ?", [req.auth.sub]);
   const [[member]] = await pool.query("SELECT * FROM members WHERE user_id = ?", [req.auth.sub]);
@@ -171,19 +335,26 @@ async function confirmMercadoPagoReturn(req, res) {
     });
   }
 
-  const payment = await approveCheckoutByExternalReference(
-    mpPayment.external_reference,
-    String(mpPayment.id),
-    mpPayment.date_approved
-  );
+  const payment = req.dbReady === false && (kv.enabled() || pgStore.enabled())
+    ? await store().approvePaymentByExternalReference(
+        mpPayment.external_reference,
+        String(mpPayment.id),
+        mpPayment.date_approved
+      )
+    : await approveCheckoutByExternalReference(
+        mpPayment.external_reference,
+        String(mpPayment.id),
+        mpPayment.date_approved
+      );
 
   if (!payment && String(mpPayment.external_reference || "").startsWith("CIP-INSCRIPCION-")) {
     return res.json({
-      message: "Pago de inscripcion confirmado. Puedes descargar tu comprobante.",
+      message: "Pago de inscripcion confirmado. Descarga tu comprobante y subelo en tu solicitud.",
       payment_id: String(mpPayment.id),
       payment: {
         id: String(mpPayment.id),
         user_id: req.auth.sub,
+        dni: req.auth.dni,
         period_month: currentPeriod(),
         amount: 20,
         payment_type: "INSCRIPCION",
@@ -193,6 +364,12 @@ async function confirmMercadoPagoReturn(req, res) {
         external_reference: mpPayment.external_reference,
         mp_payment_id: String(mpPayment.id),
       },
+      user: {
+        id: req.auth.sub,
+        dni: req.auth.dni,
+        full_name: req.auth.name,
+        email: req.auth.email,
+      },
     });
   }
 
@@ -200,7 +377,17 @@ async function confirmMercadoPagoReturn(req, res) {
     return res.status(404).json({ message: "No se encontro el pago asociado a tu cuenta." });
   }
 
-  res.json({ message: "Pago confirmado. Puedes descargar tu comprobante.", payment_id: payment.id, payment });
+  res.json({
+    message: "Pago confirmado. Descarga tu comprobante cuando lo necesites.",
+    payment_id: payment.id,
+    payment,
+    user: {
+      id: req.auth.sub,
+      dni: req.auth.dni,
+      full_name: req.auth.name,
+      email: req.auth.email,
+    },
+  });
 }
 
 // Webhook Mercado Pago: confirmacion asincrona del proveedor.
@@ -210,11 +397,19 @@ async function mercadoPagoWebhook(req, res) {
 
   const mpPayment = await fetchMercadoPagoPayment(paymentId);
   if (mpPayment?.status === "approved") {
-    await approveCheckoutByExternalReference(
-      mpPayment.external_reference,
-      String(mpPayment.id),
-      mpPayment.date_approved
-    );
+    if (kv.enabled() || pgStore.enabled()) {
+      await store().approvePaymentByExternalReference(
+        mpPayment.external_reference,
+        String(mpPayment.id),
+        mpPayment.date_approved
+      );
+    } else {
+      await approveCheckoutByExternalReference(
+        mpPayment.external_reference,
+        String(mpPayment.id),
+        mpPayment.date_approved
+      );
+    }
   }
   res.status(200).json({ ok: true });
 }

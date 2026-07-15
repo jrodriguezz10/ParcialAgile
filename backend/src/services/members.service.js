@@ -1,12 +1,12 @@
 const crypto = require("crypto");
 const { getPool } = require("../config/database");
-const { currentPeriod, periodFromDate, periodsBetween, todayDate } = require("../utils/dates");
+const { currentPeriod, periodFromDate, previousPeriod, periodsBetween, todayDate } = require("../utils/dates");
 const { frontendUrl } = require("../utils/files");
 const { applicationPresenter } = require("../utils/presenters");
 
 // Calcula mensualidades esperadas menos pagos registrados.
 async function getPendingMonthlyPeriods(pool, memberId, enrollmentDate) {
-  const expectedPeriods = periodsBetween(periodFromDate(enrollmentDate), currentPeriod());
+  const expectedPeriods = periodsBetween(periodFromDate(enrollmentDate), previousPeriod(currentPeriod()));
   if (!expectedPeriods.length) return [];
 
   const [paidRows] = await pool.query(
@@ -26,11 +26,11 @@ async function refreshAllMemberStatuses() {
   }
 }
 
-// Estado del carnet: override manual o calculo automatico por deuda.
+// Estado del carnet: calculo automatico por mensualidades vencidas.
 async function refreshMemberStatus(memberId) {
   const pool = getPool();
   const [[row]] = await pool.query(
-    `SELECT id, enrollment_date, status_override
+    `SELECT id, enrollment_date
      FROM members
      WHERE id = ?`,
     [memberId]
@@ -38,13 +38,8 @@ async function refreshMemberStatus(memberId) {
   if (!row) return null;
 
   const pendingPeriods = await getPendingMonthlyPeriods(pool, memberId, row.enrollment_date);
-  const status =
-    row.status_override === "HABILITADO" || row.status_override === "INHABILITADO"
-      ? row.status_override
-      : pendingPeriods.length
-        ? "INHABILITADO"
-        : "HABILITADO";
-  await pool.query("UPDATE members SET status = ? WHERE id = ?", [status, memberId]);
+  const status = pendingPeriods.length ? "INHABILITADO" : "HABILITADO";
+  await pool.query("UPDATE members SET status = ?, status_override = NULL, status_reason = NULL WHERE id = ?", [status, memberId]);
   return status;
 }
 
@@ -60,7 +55,14 @@ async function getUserBundle(userId, req) {
   if (!user) return null;
 
   const [[application]] = await pool.query("SELECT * FROM applications WHERE user_id = ?", [userId]);
-  const [[member]] = await pool.query("SELECT * FROM members WHERE user_id = ?", [userId]);
+  const [[member]] = await pool.query(
+    `SELECT m.*
+     FROM members m
+     JOIN applications a ON a.id = m.application_id
+     WHERE m.user_id = ? AND a.status = 'APROBADO'
+     LIMIT 1`,
+    [userId]
+  );
 
   let hydratedMember = member || null;
   if (hydratedMember) {

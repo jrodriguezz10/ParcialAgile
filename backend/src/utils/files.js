@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const env = require("../config/env");
 
 function originFromReq(req) {
@@ -48,14 +49,27 @@ function storedPath(file) {
   return path.relative(env.backendRoot, file.path).replace(/\\/g, "/");
 }
 
+function shouldStoreUploadsInDatabase() {
+  return Boolean(process.env.VERCEL || process.env.STORE_UPLOADS_IN_DB === "true");
+}
+
 function fileUrl(req, relativePath) {
   if (!relativePath) return null;
+  if (/^data:/i.test(relativePath)) return relativePath;
   return `${originFromReq(req)}/${relativePath.replace(/\\/g, "/")}`;
+}
+
+function fileDataUrl(file) {
+  if (!file?.path) return null;
+  const buffer = fs.readFileSync(file.path);
+  return `data:${file.mimetype};base64,${buffer.toString("base64")}`;
 }
 
 module.exports = {
   originFromReq,
   frontendUrl,
   storedPath,
+  shouldStoreUploadsInDatabase,
+  fileDataUrl,
   fileUrl,
 };

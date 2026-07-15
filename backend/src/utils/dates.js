@@ -46,6 +46,14 @@ function nextPeriod(period) {
   return `${nextYear}-${nextMonth}`;
 }
 
+function previousPeriod(period) {
+  const [year, month] = String(period).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 2, 1));
+  const previousYear = date.getUTCFullYear();
+  const previousMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${previousYear}-${previousMonth}`;
+}
+
 function periodsBetween(startPeriod, endPeriod) {
   if (!isValidPeriod(startPeriod) || !isValidPeriod(endPeriod)) return [];
   const periods = [];
@@ -63,5 +71,6 @@ module.exports = {
   isValidPeriod,
   comparePeriods,
   periodFromDate,
+  previousPeriod,
   periodsBetween,
 };

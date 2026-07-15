@@ -92,13 +92,13 @@
   opacity: 0.18;
 }
 
-/* Datos, foto y QR del carnet. */
+/* Datos y foto del carnet. */
 .card-content {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: 118px minmax(0, 1fr) 94px;
-  gap: 14px;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 22px;
   margin-top: 22px;
   align-items: start;
 }
@@ -166,26 +166,6 @@
   margin-top: 2px;
   font-size: 0.78rem;
   line-height: 1.12;
-}
-
-.qr-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.qr-box svg {
-  border: 1px solid #b9c1bd;
-  border-radius: 8px;
-  background: #fff;
-  padding: 5px;
-}
-
-.qr-box span {
-  color: var(--red-800);
-  font-size: 0.62rem;
-  font-weight: 800;
 }
 
 .virtual-card footer {

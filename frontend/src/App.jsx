@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Admin from "./pages/Admin";
 import Inicio from "./pages/Inicio";
@@ -10,6 +10,19 @@ import VerificarCarnet from "./pages/VerificarCarnet";
 // Router principal: traduce rutas declaradas en main.jsx a paginas de la app.
 export default function App({ page = "user" }) {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const titles = {
+      user: "Proyecto academico | Colegiacion digital",
+      solicitud: "Colegiatura | Proyecto academico",
+      portal: "Portal del interesado | Proyecto academico",
+      login: "Acceso | Colegio de Ingenieros",
+      admin: "Panel de atencion | Colegio de Ingenieros",
+      verify: "Carnet virtual | Colegio de Ingenieros",
+      checkout: "Resultado de pago | Proyecto academico",
+    };
+    document.title = titles[page] || titles.user;
+  }, [page]);
 
   // Navegacion interna usada por botones sin acoplar componentes a rutas.
   const handleNavigate = useCallback((targetPage, options = {}) => {

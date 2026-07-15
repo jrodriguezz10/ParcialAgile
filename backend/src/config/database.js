@@ -10,18 +10,12 @@ function getPool() {
 }
 
 async function connectDatabase() {
-  const config = {
-    host: env.db.host,
-    port: env.db.port,
-    user: env.db.user,
-    password: env.db.password,
-    multipleStatements: false,
-  };
+  const { config, database } = buildMysqlConfig();
 
   try {
     const adminConnection = await mysql.createConnection(config);
     await adminConnection.query(
-      `CREATE DATABASE IF NOT EXISTS \`${env.db.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+      `CREATE DATABASE IF NOT EXISTS \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
     );
     await adminConnection.end();
   } catch (error) {
@@ -30,7 +24,7 @@ async function connectDatabase() {
 
   pool = mysql.createPool({
     ...config,
-    database: env.db.database,
+    database,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
@@ -39,6 +33,51 @@ async function connectDatabase() {
 
   await migrate();
   await seedAdmin();
+}
+
+function buildMysqlConfig() {
+  const base = env.db.url ? parseDatabaseUrl(env.db.url) : {
+    host: env.db.host,
+    port: env.db.port,
+    user: env.db.user,
+    password: env.db.password,
+    database: env.db.database,
+  };
+
+  const { database, ...connectionConfig } = base;
+  const config = {
+    ...connectionConfig,
+    multipleStatements: false,
+  };
+
+  if (env.db.ssl || shouldUseSsl(base.host, env.db.url)) {
+    config.ssl = { rejectUnauthorized: env.db.sslRejectUnauthorized };
+  }
+
+  return {
+    config,
+    database: database || env.db.database,
+  };
+}
+
+function parseDatabaseUrl(value) {
+  const url = new URL(value);
+  const params = url.searchParams;
+  const sslMode = params.get("ssl") || params.get("sslmode");
+
+  return {
+    host: url.hostname,
+    port: Number(url.port || 3306),
+    user: decodeURIComponent(url.username || ""),
+    password: decodeURIComponent(url.password || ""),
+    database: decodeURIComponent(url.pathname.replace(/^\//, "")),
+    ssl: sslMode && sslMode !== "false" ? { rejectUnauthorized: env.db.sslRejectUnauthorized } : undefined,
+  };
+}
+
+function shouldUseSsl(host, databaseUrl) {
+  if (!databaseUrl || !host) return false;
+  return !/^(localhost|127\.0\.0\.1|::1)$/i.test(host);
 }
 
 async function migrate() {
@@ -91,9 +130,9 @@ async function migrate() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT NOT NULL UNIQUE,
       status VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
-      photo_path VARCHAR(255) NULL,
-      degree_pdf_path VARCHAR(255) NULL,
-      receipt_path VARCHAR(255) NULL,
+      photo_path LONGTEXT NULL,
+      degree_pdf_path LONGTEXT NULL,
+      receipt_path LONGTEXT NULL,
       observations TEXT NULL,
       submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       reviewed_at TIMESTAMP NULL,
@@ -129,7 +168,7 @@ async function migrate() {
       external_reference VARCHAR(120) NULL UNIQUE,
       mp_preference_id VARCHAR(120) NULL,
       mp_payment_id VARCHAR(120) NULL,
-      receipt_path VARCHAR(255) NULL,
+      receipt_path LONGTEXT NULL,
       created_by_admin INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -177,6 +216,10 @@ async function migrate() {
   await ensureColumn("registration_verifications", "maternal_last_name", "VARCHAR(90) NULL AFTER paternal_last_name");
   await ensureColumn("members", "status_override", "VARCHAR(20) NULL AFTER status");
   await ensureColumn("members", "status_reason", "TEXT NULL AFTER status_override");
+  await pool.query("ALTER TABLE applications MODIFY COLUMN photo_path LONGTEXT NULL");
+  await pool.query("ALTER TABLE applications MODIFY COLUMN degree_pdf_path LONGTEXT NULL");
+  await pool.query("ALTER TABLE applications MODIFY COLUMN receipt_path LONGTEXT NULL");
+  await pool.query("ALTER TABLE payments MODIFY COLUMN receipt_path LONGTEXT NULL");
   await ensureColumn(
     "admins",
     "updated_at",
@@ -185,6 +228,7 @@ async function migrate() {
   await ensureColumn("admins", "dni", "VARCHAR(8) NULL UNIQUE AFTER name");
   await ensureColumn("admins", "phone", "VARCHAR(30) NULL AFTER email");
   await ensureColumn("admins", "role", "VARCHAR(80) NOT NULL DEFAULT 'Administrador' AFTER phone");
+  await ensureColumn("admins", "branch", "VARCHAR(120) NOT NULL DEFAULT 'Consejo Nacional - Lima' AFTER role");
   await ensureColumn("payments", "payment_type", "VARCHAR(20) NOT NULL DEFAULT 'MENSUALIDAD' AFTER amount");
   await pool.query(
     `UPDATE payments

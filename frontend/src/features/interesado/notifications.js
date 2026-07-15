@@ -17,7 +17,7 @@ export function buildUserNotifications({ application, member, debtAmount, openMo
       readKey: `application-approved:${application.id}:${application.reviewed_at || ""}`,
       title: "Solicitud aprobada",
       message: application.observations || "Tu carnet virtual ya esta disponible.",
-      meta: "Abre Carnet para verlo o descargarlo.",
+      meta: "Abre Carnet para verlo.",
       variant: "success",
       onClick: () => openModule("carnet"),
     });
@@ -29,15 +29,6 @@ export function buildUserNotifications({ application, member, debtAmount, openMo
       message: application.observations || "El administrador rechazo la solicitud.",
       meta: "Revisa el comentario del Colegio.",
       variant: "danger",
-      onClick: () => openModule("solicitud"),
-    });
-  } else if (application?.status === "PENDIENTE") {
-    items.push({
-      id: "application-pending",
-      readKey: `application-pending:${application.id}:${application.submitted_at || ""}`,
-      title: "Solicitud enviada",
-      message: "Tu expediente esta pendiente de revision.",
-      meta: "El Colegio notificara el resultado aqui.",
       onClick: () => openModule("solicitud"),
     });
   }

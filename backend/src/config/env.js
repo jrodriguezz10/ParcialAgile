@@ -7,10 +7,17 @@ const backendRoot = path.resolve(__dirname, "../..");
 const uploadRoot = process.env.VERCEL ? path.join("/tmp", "uploads") : path.join(backendRoot, "uploads");
 const applicationUploadDir = path.join(uploadRoot, "applications");
 
-const corsOrigins = (process.env.CORS_ORIGIN || "http://localhost:3001,http://localhost:3002,http://localhost:5173")
+const corsOrigins = (process.env.CORS_ORIGIN || "https://colegioingenierosdelperu.online,https://frontend-theta-rosy-97.vercel.app,http://localhost:3001,http://localhost:3002,http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+function envValue(name, fallback = "") {
+  const value = process.env[name];
+  if (value == null) return fallback;
+  const cleaned = String(value).trim().replace(/^"(.*)"$/, "$1");
+  return cleaned || fallback;
+}
 
 module.exports = {
   port: Number(process.env.PORT || 8084),
@@ -27,11 +34,18 @@ module.exports = {
   reniecToken: process.env.RENIEC_TOKEN || "",
   reniecRequired: process.env.RENIEC_REQUIRED === "true",
   db: {
-    host: process.env.DB_HOST || "localhost",
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
-    database: process.env.DB_NAME || "parcial_agile",
+    configured: Boolean(
+      envValue("DATABASE_URL") ||
+        (envValue("DB_HOST") && envValue("DB_USER") && envValue("DB_NAME"))
+    ),
+    url: envValue("DATABASE_URL"),
+    host: envValue("DB_HOST", "localhost"),
+    port: Number(envValue("DB_PORT", 3306)),
+    user: envValue("DB_USER", "root"),
+    password: envValue("DB_PASSWORD"),
+    database: envValue("DB_NAME", "parcial_agile"),
+    ssl: process.env.DB_SSL === "true",
+    sslRejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false",
   },
   admin: {
     email: process.env.ADMIN_EMAIL || "admin@cip.local",
@@ -46,4 +60,8 @@ module.exports = {
     from: process.env.SMTP_FROM || "Colegio de Ingenieros <no-reply@localhost>",
   },
   mercadoPagoAccessToken: process.env.MP_ACCESS_TOKEN || "",
+  upstash: {
+    url: envValue("UPSTASH_REDIS_REST_URL"),
+    token: envValue("UPSTASH_REDIS_REST_TOKEN"),
+  },
 };

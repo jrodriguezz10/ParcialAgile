@@ -24,11 +24,6 @@ async function createMercadoPagoPreference(checkout, user, req) {
         currency_id: "PEN",
       },
     ],
-    payer: {
-      email: user.email,
-      name: user.full_name,
-      identification: { type: "DNI", number: user.dni },
-    },
     external_reference: checkout.external_reference,
     back_urls: {
       success: returnUrl,

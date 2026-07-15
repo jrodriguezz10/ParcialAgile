@@ -18,6 +18,9 @@ export const blankProfile = {
   paternal_last_name: "",
   maternal_last_name: "",
   email: "",
+  phone: "",
+  address: "",
   profession: "",
+  branch: "Consejo Nacional - Lima",
   password: "",
 };

@@ -2,6 +2,9 @@ const bcrypt = require("bcryptjs");
 const { getPool } = require("../config/database");
 const { signToken } = require("../middleware/auth");
 const { consultDniApi } = require("../services/reniec.service");
+const snapshot = require("../services/snapshot.service");
+const kv = require("../services/kv.service");
+const pgStore = require("../services/postgres-store.service");
 const { normalizeDni } = require("../utils/text");
 
 // Consulta DNI: endpoint compartido para autocompletar formularios.
@@ -13,11 +16,23 @@ async function getDni(req, res) {
 
 // Login administrador: autentica cuenta admin y emite JWT de administrador.
 async function loginAdmin(req, res) {
-  const pool = getPool();
   const rawEmail = String(req.body.email || "").trim().toLowerCase();
   const email = rawEmail === "admin" ? "admin@cip.local" : rawEmail;
   const password = String(req.body.password || "");
-  const [[admin]] = await pool.query("SELECT * FROM admins WHERE email = ?", [email]);
+
+  let admin;
+  try {
+    if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
+      admin = await (kv.enabled() ? kv : pgStore).findAdminByEmail(email);
+    } else {
+    const pool = getPool();
+    [[admin]] = await pool.query("SELECT * FROM admins WHERE email = ?", [email]);
+    }
+  } catch (error) {
+    if (!snapshot.available()) throw error;
+    admin = snapshot.findAdminByEmail(email);
+  }
+
   if (!admin || !(await bcrypt.compare(password, admin.password_hash))) {
     return res.status(401).json({ message: "Credenciales de administrador invalidas." });
   }

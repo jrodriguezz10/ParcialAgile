@@ -11,6 +11,7 @@ const publicRoutes = require("./routes/public.routes");
 // Express app: registra middlewares globales, archivos publicos y rutas API.
 function createApp() {
   const app = express();
+  app.set("trust proxy", true);
 
   // CORS: permite frontend local/configurado y bloquea origenes no permitidos.
   app.use(
@@ -24,6 +25,12 @@ function createApp() {
     })
   );
   app.use(express.json({ limit: "2mb" }));
+  app.use("/api", (req, res, next) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    next();
+  });
   app.use("/uploads", express.static(env.uploadRoot, { setHeaders: setStaticHeaders }));
 
   // Rutas API agrupadas por responsabilidad.

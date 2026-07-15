@@ -5,8 +5,8 @@ import { Button, PasswordField } from "../../components/ui";
 import { api } from "../../lib/api";
 
 export function AdminAuth({ onAuthenticated }) {
-  const [email, setEmail] = useState("admin@cip.local");
-  const [password, setPassword] = useState("Admin12345");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -38,7 +38,7 @@ export function AdminAuth({ onAuthenticated }) {
       </div>
       <label>
         Correo
-        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required />
       </label>
       <label>
         Clave
@@ -47,6 +47,7 @@ export function AdminAuth({ onAuthenticated }) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           onToggle={() => setShowPassword((current) => !current)}
+          autoComplete="current-password"
           required
         />
       </label>
