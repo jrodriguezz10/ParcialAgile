@@ -7,7 +7,7 @@ const backendRoot = path.resolve(__dirname, "../..");
 const uploadRoot = process.env.VERCEL ? path.join("/tmp", "uploads") : path.join(backendRoot, "uploads");
 const applicationUploadDir = path.join(uploadRoot, "applications");
 
-const corsOrigins = (process.env.CORS_ORIGIN || "https://colegioingenierosdelperu.online,https://frontend-theta-rosy-97.vercel.app,http://localhost:3001,http://localhost:3002,http://localhost:5173")
+const corsOrigins = (process.env.CORS_ORIGIN || "https://colegioingenierosdelperu.online,https://www.colegioingenierosdelperu.online,https://frontend-theta-rosy-97.vercel.app,http://localhost:3001,http://localhost:3002,http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
