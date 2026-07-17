@@ -69,6 +69,7 @@ export function AdminDashboard({ token, onLogout }) {
       branch: data.branch || "Consejo Nacional - Lima",
       password: "",
     });
+    return data;
   }
 
   async function loadAdminUsers() {
@@ -108,14 +109,12 @@ export function AdminDashboard({ token, onLogout }) {
     setLoading(true);
     setMessage("");
     try {
-      await Promise.all([
-        loadApplications(),
-        loadApplicationSummary(),
-        loadMembers(),
-        loadMemberSummary(),
-        loadAdminProfile(),
-        loadAdminUsers(),
-      ]);
+      const profile = await loadAdminProfile();
+      if (profile?.role === "CAJERO") {
+        await Promise.all([loadMembers(), loadMemberSummary()]);
+      } else {
+        await Promise.all([loadApplications(), loadApplicationSummary(), loadMembers(), loadMemberSummary(), loadAdminUsers()]);
+      }
     } catch (error) {
       if (/sesion vencida|token requerido|no autorizado/i.test(error.message)) {
         onLogout();
@@ -350,6 +349,17 @@ export function AdminDashboard({ token, onLogout }) {
     }
   }
 
+  async function notifyWhatsApp(member) {
+    setMessage("");
+    try {
+      const data = await api(`/api/admin/members/${member.id}/notify-whatsapp`, { method: "POST", token });
+      if (data.whatsapp_url) window.open(data.whatsapp_url, "_blank", "noopener,noreferrer");
+      setMessage(data.message || "Notificacion de deuda procesada.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
   const stats = useMemo(() => {
     const applicationSource = allApplications.length ? allApplications : applications;
     const memberSource = allMembers.length ? allMembers : members;
@@ -484,6 +494,7 @@ export function AdminDashboard({ token, onLogout }) {
         memberCardRef={memberCardRef} onFilterChange={setMemberFilter} onRefresh={loadAll}
         onOpenPayments={openMemberPayments} onManualPeriodChange={setManualPeriod} onPaymentCountChange={setPaymentCount}
         onRegisterPayment={registerManualPayment} onOpenCard={openMemberPayments}
+        onNotifyWhatsApp={notifyWhatsApp}
         onCloseMember={() => { setSelectedMember(null); setMemberPayments([]); }}
       />
 

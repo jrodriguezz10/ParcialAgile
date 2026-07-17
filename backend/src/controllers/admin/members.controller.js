@@ -2,15 +2,24 @@ const { getPool } = require("../../config/database");
 const { createManualMemberRecord } = require("../../services/admin-members.service");
 const { refreshAllMemberStatuses, refreshMemberStatus } = require("../../services/members.service");
 const { createExternalReference, createMercadoPagoPreference } = require("../../services/payments.service");
-const { comparePeriods, currentPeriod, isValidPeriod, periodFromDate } = require("../../utils/dates");
+const { currentPeriod, isValidPeriod, periodFromDate, periodsBetween, previousPeriod } = require("../../utils/dates");
 const { fileDataUrl, fileUrl, frontendUrl } = require("../../utils/files");
 const { isValidEmail, normalizeDni } = require("../../utils/text");
 const snapshot = require("../../services/snapshot.service");
 const kv = require("../../services/kv.service");
 const pgStore = require("../../services/postgres-store.service");
+const { sendDebtNotice, normalizePeruPhone } = require("../../services/whatsapp.service");
 
 function store() {
   return kv.enabled() ? kv : pgStore;
+}
+
+function withDebt(member, payments) {
+  const paid = new Set((payments || []).filter((item) => item.status === "PAGADO" && item.payment_type === "MENSUALIDAD").map((item) => item.period_month));
+  const start = periodFromDate(member.enrollment_date);
+  const end = previousPeriod(currentPeriod());
+  const pendingPeriods = start && start <= end ? periodsBetween(start, end).filter((period) => !paid.has(period)) : [];
+  return { ...member, pending_periods: pendingPeriods, debt_count: pendingPeriods.length, debt_amount: pendingPeriods.length * 20 };
 }
 
 // Padron: alta manual, estado de colegiados y pagos registrados por admin.
@@ -41,6 +50,7 @@ async function createKvManualMember(req) {
   const dni = normalizeDni(req.body.dni);
   const fullName = String(req.body.full_name || "").trim();
   const email = String(req.body.email || "").trim().toLowerCase();
+  const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
   const profession = String(req.body.profession || "").trim();
   const paymentPeriod = isValidPeriod(req.body.payment_period_month) ? req.body.payment_period_month : currentPeriod();
   const paymentMethod = String(req.body.payment_method || "EFECTIVO").trim().toUpperCase();
@@ -55,12 +65,13 @@ async function createKvManualMember(req) {
   if (!fullName) throw validationError("Consulta el DNI para completar los nombres.");
   if (!profession) throw validationError("Completa la profesion.");
   if (!isValidEmail(email)) throw validationError("Correo invalido.");
+  if (!/^9\d{8}$/.test(phone)) throw validationError("Ingresa un celular valido de 9 digitos.");
   if (!files.degreePdf) throw validationError("Sube el PDF del titulo profesional.");
   if (!["EFECTIVO", "MERCADO_PAGO"].includes(paymentMethod)) throw validationError("Selecciona un metodo de pago valido.");
   if (paymentMethod === "EFECTIVO" && !receiptData) throw validationError("Sube la imagen o PDF del comprobante de pago.");
 
   const { application } = await kv.createPublicApplication({
-    body: { dni, full_name: fullName, email, profession, branch: String(req.body.branch || "Consejo Nacional - Lima") },
+    body: { dni, full_name: fullName, email, phone, profession, branch: String(req.body.branch || "Consejo Nacional - Lima") },
     files,
   });
   const member = await kv.approveApplication(
@@ -128,11 +139,12 @@ async function listMembers(req, res) {
     const status = String(req.query.status || "").toUpperCase();
     if (kv.enabled() || pgStore.enabled()) {
       const applications = await store().listApplications("TODOS");
-      const currentAdmin = await store().getAdmin(req.auth.sub);
+      const currentAdmin = req.admin || await store().getAdmin(req.auth.sub);
       const scopedMembers = (await store().listMembers(status)).filter((row) =>
         !currentAdmin?.branch || currentAdmin.branch === "Consejo Nacional - Lima" || (row.branch || "Consejo Nacional - Lima") === currentAdmin.branch
       );
-      return res.json(scopedMembers.map((row) => ({
+      const decorated = await Promise.all(scopedMembers.map(async (row) => withDebt(row, await store().listMemberPayments(row.id))));
+      return res.json(decorated.map((row) => ({
         ...row,
         verify_url: `${frontendUrl(req)}/verificar/${row.verification_code}`,
         photo_url: (() => {
@@ -162,7 +174,7 @@ async function listMembers(req, res) {
   }
 
   const [rows] = await pool.query(
-    `SELECT m.*, u.dni, u.full_name, u.email, u.phone, u.profession, a.photo_path,
+    `SELECT m.*, u.dni, u.full_name, u.email, u.phone, u.profession, u.branch, a.photo_path,
             lp.last_paid_period,
             lp.last_paid_at
      FROM members m
@@ -179,7 +191,12 @@ async function listMembers(req, res) {
      ORDER BY m.created_at DESC`,
     params
   );
-  res.json(rows.map((row) => ({
+  const scopedRows = rows.filter((row) => req.admin?.branch === "Consejo Nacional - Lima" || (row.branch || "Consejo Nacional - Lima") === req.admin?.branch);
+  const decorated = await Promise.all(scopedRows.map(async (row) => {
+    const [payments] = await pool.query("SELECT period_month, payment_type, status FROM payments WHERE member_id = ?", [row.id]);
+    return withDebt(row, payments);
+  }));
+  res.json(decorated.map((row) => ({
     ...row,
     verify_url: `${frontendUrl(req)}/verificar/${row.verification_code}`,
     photo_url: fileUrl(req, row.photo_path),
@@ -242,10 +259,36 @@ async function createMemberPayment(req, res) {
   res.status(201).json({ message: `${periods.length} pago(s) registrado(s).`, status });
 }
 
+async function notifyMemberWhatsApp(req, res) {
+  let member;
+  let payments;
+  if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
+    member = (await store().listMembers("TODOS")).find((item) => Number(item.id) === Number(req.params.id));
+    payments = member ? await store().listMemberPayments(member.id) : [];
+  } else {
+    [[member]] = await getPool().query(
+      `SELECT m.*, u.full_name, u.phone FROM members m JOIN users u ON u.id = m.user_id WHERE m.id = ?`,
+      [req.params.id]
+    );
+    if (member) [payments] = await getPool().query("SELECT * FROM payments WHERE member_id = ?", [member.id]);
+  }
+  if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });
+  const debt = withDebt(member, payments);
+  if (!debt.debt_count) return res.status(409).json({ message: "El colegiado no tiene mensualidades vencidas." });
+  const result = await sendDebtNotice({ phone: member.phone, fullName: member.full_name, debtAmount: debt.debt_amount, pendingPeriods: debt.pending_periods });
+  if (!result.configured) {
+    const phone = normalizePeruPhone(member.phone);
+    const text = encodeURIComponent(`Hola ${member.full_name}, registra una deuda de S/ ${debt.debt_amount.toFixed(2)} por las mensualidades ${debt.pending_periods.join(", ")}. Colegio de Ingenieros del Peru.`);
+    return res.json({ sent: false, configured: false, whatsapp_url: `https://wa.me/${phone}?text=${text}`, message: "WhatsApp Cloud API no esta configurado; se genero un enlace de envio manual." });
+  }
+  res.json({ ...result, message: "Notificacion enviada por WhatsApp." });
+}
+
 module.exports = {
   createManualMember,
   listMembers,
   updateMemberStatus,
   listMemberPayments,
   createMemberPayment,
+  notifyMemberWhatsApp,
 };

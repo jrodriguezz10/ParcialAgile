@@ -229,6 +229,7 @@ async function migrate() {
   await ensureColumn("admins", "phone", "VARCHAR(30) NULL AFTER email");
   await ensureColumn("admins", "role", "VARCHAR(80) NOT NULL DEFAULT 'Administrador' AFTER phone");
   await ensureColumn("admins", "branch", "VARCHAR(120) NOT NULL DEFAULT 'Consejo Nacional - Lima' AFTER role");
+  await ensureColumn("users", "branch", "VARCHAR(120) NOT NULL DEFAULT 'Consejo Nacional - Lima' AFTER profession");
   await ensureColumn("payments", "payment_type", "VARCHAR(20) NOT NULL DEFAULT 'MENSUALIDAD' AFTER amount");
   await pool.query(
     `UPDATE payments

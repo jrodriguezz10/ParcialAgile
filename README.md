@@ -102,6 +102,21 @@ La mensualidad es `S/ 20.00`.
 - Al regularizar todas las mensualidades pendientes, queda `HABILITADO`.
 - El usuario puede iniciar pago por Mercado Pago.
 - El administrador puede registrar pagos manuales.
+- El cajero puede registrar varias mensualidades consecutivas en una sola operacion y consultar meses/monto vencido.
+
+## WhatsApp
+
+El modulo Caja genera un enlace de WhatsApp con el detalle de deuda. Para envio automatico mensual mediante WhatsApp Cloud API configure en Vercel:
+
+```text
+WHATSAPP_ACCESS_TOKEN=token-permanente-de-meta
+WHATSAPP_PHONE_NUMBER_ID=id-del-numero
+WHATSAPP_DEBT_TEMPLATE=monthly_debt_notice
+WHATSAPP_TEMPLATE_LANGUAGE=es
+CRON_SECRET=secreto-aleatorio
+```
+
+La plantilla aprobada en Meta debe recibir tres parametros: nombre del colegiado, monto de deuda y periodos vencidos. Vercel ejecuta el aviso el dia 5 de cada mes.
 
 ## Verificacion de carnet
 

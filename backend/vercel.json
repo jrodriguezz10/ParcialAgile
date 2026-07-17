@@ -11,5 +11,6 @@
       "src": "/(.*)",
       "dest": "api/index.js"
     }
-  ]
+  ],
+  "crons": [{ "path": "/api/jobs/overdue-whatsapp", "schedule": "0 14 5 * *" }]
 }

@@ -60,6 +60,13 @@ module.exports = {
     from: process.env.SMTP_FROM || "Colegio de Ingenieros <no-reply@localhost>",
   },
   mercadoPagoAccessToken: process.env.MP_ACCESS_TOKEN || "",
+  whatsapp: {
+    token: envValue("WHATSAPP_ACCESS_TOKEN"),
+    phoneNumberId: envValue("WHATSAPP_PHONE_NUMBER_ID"),
+    debtTemplate: envValue("WHATSAPP_DEBT_TEMPLATE", "monthly_debt_notice"),
+    language: envValue("WHATSAPP_TEMPLATE_LANGUAGE", "es"),
+  },
+  cronSecret: envValue("CRON_SECRET"),
   upstash: {
     url: envValue("UPSTASH_REDIS_REST_URL"),
     token: envValue("UPSTASH_REDIS_REST_TOKEN"),

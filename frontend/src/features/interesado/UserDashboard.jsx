@@ -120,7 +120,7 @@ export function UserDashboard({ token, onLogout }) {
 
     const payload = new FormData();
     payload.append("dni", dni);
-    ["full_name", "email", "profession"].forEach((field) => {
+    ["full_name", "email", "profession", "phone", "branch"].forEach((field) => {
       payload.append(field, field === "email" ? String(form[field] || "").trim().toLowerCase() : form[field] || "");
     });
     if (files.photo) payload.append("photo", files.photo);

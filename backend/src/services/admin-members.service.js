@@ -30,6 +30,7 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
   const phone = String(body.phone || "").trim();
   const address = String(body.address || "").trim();
   const profession = String(body.profession || "").trim();
+  const branch = String(body.branch || "Consejo Nacional - Lima").trim();
   const password = String(body.password || dni || "123456");
   const storeFilesInDatabase = shouldStoreUploadsInDatabase();
   const photoPath = (storeFilesInDatabase ? fileDataUrl(files?.photo?.[0]) : storedPath(files?.photo?.[0])) || null;
@@ -64,8 +65,8 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
     const [userResult] = await connection.query(
       `INSERT INTO users
          (dni, full_name, first_name, paternal_last_name, maternal_last_name,
-          email, phone, address, profession, password_hash)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          email, phone, address, profession, branch, password_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         dni,
         fullName,
@@ -76,6 +77,7 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
         phone || null,
         address || null,
         profession,
+        branch,
         passwordHash,
       ]
     );

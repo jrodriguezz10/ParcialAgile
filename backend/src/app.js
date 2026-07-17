@@ -7,6 +7,8 @@ const userRoutes = require("./routes/user.routes");
 const adminRoutes = require("./routes/admin.routes");
 const paymentsRoutes = require("./routes/payments.routes");
 const publicRoutes = require("./routes/public.routes");
+const jobsController = require("./controllers/jobs.controller");
+const asyncHandler = require("./middleware/asyncHandler");
 
 // Express app: registra middlewares globales, archivos publicos y rutas API.
 function createApp() {
@@ -39,6 +41,7 @@ function createApp() {
   app.use("/api", userRoutes);
   app.use("/api", adminRoutes);
   app.use("/api", paymentsRoutes);
+  app.get("/api/jobs/overdue-whatsapp", asyncHandler(jobsController.notifyOverdueWhatsApp));
 
   app.use(errorHandler);
   return app;

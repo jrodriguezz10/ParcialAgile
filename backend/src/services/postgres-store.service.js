@@ -310,6 +310,7 @@ async function approveApplication(id, observations = null, adminId = null) {
       email: application.email,
       phone: application.phone,
       profession: application.profession,
+      branch: application.branch || "Consejo Nacional - Lima",
       photo_path: application.photo_path,
       last_paid_period: new Date().toISOString().slice(0, 7),
       last_paid_at: new Date().toISOString().slice(0, 19).replace("T", " "),

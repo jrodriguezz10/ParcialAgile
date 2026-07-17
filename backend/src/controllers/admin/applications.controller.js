@@ -11,11 +11,16 @@ function store() {
   return kv.enabled() ? kv : pgStore;
 }
 
+function inAdminBranch(req, row) {
+  const branch = req.admin?.branch || "Consejo Nacional - Lima";
+  return branch === "Consejo Nacional - Lima" || (row?.branch || "Consejo Nacional - Lima") === branch;
+}
+
 // Solicitudes: revision documentaria y decision administrativa.
 async function listApplications(req, res) {
   const status = String(req.query.status || "").toUpperCase();
   if (req.dbReady === false && snapshot.available()) {
-    if (kv.enabled() || pgStore.enabled()) return res.json((await store().listApplications(status)).map((row) => applicationPresenter(req, row)));
+    if (kv.enabled() || pgStore.enabled()) return res.json((await store().listApplications(status)).filter((row) => inAdminBranch(req, row)).map((row) => applicationPresenter(req, row)));
     const rows = snapshot.listApplications(status);
     const kvRows = kv.enabled() ? await kv.listKvApplications(status) : [];
     return res.json([...kvRows, ...rows].map((row) => applicationPresenter(req, row)));
@@ -29,14 +34,14 @@ async function listApplications(req, res) {
   }
 
   const [rows] = await getPool().query(
-    `SELECT a.*, u.dni, u.full_name, u.email, u.phone, u.address, u.profession
+    `SELECT a.*, u.dni, u.full_name, u.email, u.phone, u.address, u.profession, u.branch
      FROM applications a
      JOIN users u ON u.id = a.user_id
      ${where}
      ORDER BY FIELD(a.status, 'PENDIENTE', 'OBSERVADO', 'APROBADO', 'RECHAZADO'), a.submitted_at DESC`,
     params
   );
-  res.json(rows.map((row) => applicationPresenter(req, row)));
+  res.json(rows.filter((row) => inAdminBranch(req, row)).map((row) => applicationPresenter(req, row)));
 }
 
 async function getApplication(req, res) {
@@ -48,18 +53,18 @@ async function getApplication(req, res) {
     }
     const kvRows = kv.enabled() ? await kv.listKvApplications("TODOS") : [];
     const row = kvRows.find((item) => Number(item.id) === Number(req.params.id)) || snapshot.getApplication(req.params.id);
-    if (!row) return res.status(404).json({ message: "Solicitud no encontrada." });
+    if (!row || !inAdminBranch(req, row)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
     return res.json(applicationPresenter(req, row));
   }
 
   const [[row]] = await getPool().query(
-    `SELECT a.*, u.dni, u.full_name, u.email, u.phone, u.address, u.profession
+    `SELECT a.*, u.dni, u.full_name, u.email, u.phone, u.address, u.profession, u.branch
      FROM applications a
      JOIN users u ON u.id = a.user_id
      WHERE a.id = ?`,
     [req.params.id]
   );
-  if (!row) return res.status(404).json({ message: "Solicitud no encontrada." });
+  if (!row || !inAdminBranch(req, row)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
   res.json(applicationPresenter(req, row));
 }
 

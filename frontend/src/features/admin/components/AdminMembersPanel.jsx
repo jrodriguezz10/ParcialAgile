@@ -1,4 +1,4 @@
-import { ReceiptText, RefreshCw, Search, X } from "lucide-react";
+import { MessageCircle, ReceiptText, RefreshCw, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { VirtualCard } from "../../../components/VirtualCard";
 import { Button, DataTable, StatusBadge } from "../../../components/ui";
@@ -23,6 +23,7 @@ export function AdminMembersPanel({
   onRegisterPayment,
   onOpenCard,
   onCloseMember,
+  onNotifyWhatsApp,
 }) {
   const [memberSearch, setMemberSearch] = useState("");
   const normalizedSearch = memberSearch.trim().toLowerCase();
@@ -73,14 +74,16 @@ export function AdminMembersPanel({
       </div>
 
       <DataTable
-        columns={["Colegiado", "Registro", "Estado", "Último pago", "Acción"]}
+        columns={["Colegiado", "Sede", "Registro", "Estado", "Deuda", "Último pago", "Acción"]}
         rows={visibleMembers.map((member) => [
           <span className="table-person" key={member.id}>
             <b>{member.full_name}</b>
             <small>DNI {member.dni}</small>
           </span>,
+          member.branch || "Consejo Nacional - Lima",
           member.membership_number,
           <StatusBadge status={member.status} />,
+          member.debt_count ? `${member.debt_count} mes(es) · S/ ${Number(member.debt_amount).toFixed(2)}` : "Sin deuda",
           member.last_paid_period || "Sin pago",
           <span className="action-stack" key={`actions-${member.id}`}>
             <button className="inline-action" onClick={() => onOpenPayments(member)}>
@@ -89,6 +92,9 @@ export function AdminMembersPanel({
             <button className="inline-action" onClick={() => onOpenCard(member)}>
               Carnet
             </button>
+            {member.debt_count > 0 && <button className="inline-action" onClick={() => onNotifyWhatsApp(member)} disabled={!member.phone} title={member.phone ? "Notificar deuda por WhatsApp" : "Registra un celular para notificar"}>
+              <MessageCircle size={15} /> WhatsApp
+            </button>}
           </span>,
         ])}
         empty="No hay colegiados registrados."

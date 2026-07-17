@@ -78,6 +78,10 @@ export function AdminRegisterPanel({
               />
             </label>
             <label>
+              Celular WhatsApp
+              <input value={manualMember.phone} onChange={(event) => onManualMemberChange((current) => ({ ...current, phone: event.target.value.replace(/\D/g, "").slice(0, 9) }))} inputMode="tel" pattern="9[0-9]{8}" maxLength={9} required />
+            </label>
+            <label>
               Profesión
               <CareerField value={manualMember.profession} onChange={(value) => onManualMemberChange((current) => ({ ...current, profession: value }))} />
             </label>

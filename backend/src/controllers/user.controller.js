@@ -91,9 +91,10 @@ async function updateProfile(req, res) {
   const email = String(req.body.email || "").trim().toLowerCase();
   const profession = String(req.body.profession || "").trim();
   const branch = String(req.body.branch || "Consejo Nacional - Lima").trim();
+  const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
 
-  if (!fullName || !email || !profession) {
-    return res.status(422).json({ message: "Completa nombres, correo y profesion." });
+  if (!fullName || !email || !profession || !/^9\d{8}$/.test(phone)) {
+    return res.status(422).json({ message: "Completa nombres, correo, profesion y celular de 9 digitos." });
   }
   if (!isValidEmail(email)) {
     return res.status(422).json({ message: "Usa un correo valido." });
@@ -103,7 +104,7 @@ async function updateProfile(req, res) {
       `UPDATE users
        SET full_name = ?, email = ?, phone = ?, address = ?, profession = ?, branch = ?
        WHERE id = ?`,
-      [fullName, email, null, null, profession, branch, req.auth.sub]
+      [fullName, email, phone, null, profession, branch, req.auth.sub]
     );
   } catch (error) {
     if (error.code === "ER_DUP_ENTRY") {
@@ -122,14 +123,15 @@ async function submitApplication(req, res) {
   const email = String(req.body.email || "").trim().toLowerCase();
   const profession = String(req.body.profession || "").trim();
   const branch = String(req.body.branch || "Consejo Nacional - Lima").trim();
+  const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
 
   if (dni.length !== 8) {
     return res.status(422).json({ message: "Ingresa un DNI valido de 8 digitos." });
   }
   const identity = await requireValidDniIdentity(dni);
   fullName = identity.full_name;
-  if (!fullName || !email || !profession) {
-    return res.status(422).json({ message: "Completa nombres, correo y profesion." });
+  if (!fullName || !email || !profession || !/^9\d{8}$/.test(phone)) {
+    return res.status(422).json({ message: "Completa nombres, correo, profesion y celular de 9 digitos." });
   }
   if (!isValidEmail(email)) {
     return res.status(422).json({ message: "Usa un correo valido." });
@@ -153,6 +155,7 @@ async function submitApplication(req, res) {
         paternal_last_name: identity.paternal_last_name,
         maternal_last_name: identity.maternal_last_name,
         email,
+        phone,
         profession,
         branch: String(req.body.branch || "Consejo Nacional - Lima"),
       },
@@ -254,7 +257,7 @@ async function submitApplication(req, res) {
         identity.paternal_last_name || null,
         identity.maternal_last_name || null,
         email,
-        null,
+        phone,
         null,
         profession,
         branch,
