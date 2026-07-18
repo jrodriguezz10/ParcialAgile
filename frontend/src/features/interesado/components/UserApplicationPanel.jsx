@@ -30,7 +30,6 @@ export function UserApplicationPanel({
       form.full_name?.trim() &&
       form.email?.trim() &&
       form.profession?.trim() &&
-      /^9\d{8}$/.test(form.phone || "") &&
       form.branch
   );
   const hasRequiredFiles = Boolean(
@@ -112,12 +111,6 @@ export function UserApplicationPanel({
             disabled={fieldsDisabled}
             required
           />
-        </label>
-
-        <label>
-          Celular para notificaciones por WhatsApp
-          <input value={form.phone || ""} onChange={(event) => onUpdateForm("phone", event.target.value.replace(/\D/g, "").slice(0, 9))}
-            inputMode="tel" maxLength={9} pattern="9[0-9]{8}" placeholder="987654321" disabled={fieldsDisabled} required />
         </label>
 
         <div className="upload-grid">

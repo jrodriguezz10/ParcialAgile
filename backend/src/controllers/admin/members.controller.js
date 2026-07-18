@@ -8,7 +8,7 @@ const { isValidEmail, normalizeDni } = require("../../utils/text");
 const snapshot = require("../../services/snapshot.service");
 const kv = require("../../services/kv.service");
 const pgStore = require("../../services/postgres-store.service");
-const { sendDebtNotice, normalizePeruPhone } = require("../../services/whatsapp.service");
+const { sendDebtNoticeEmail } = require("../../services/mail.service");
 
 function store() {
   return kv.enabled() ? kv : pgStore;
@@ -65,7 +65,7 @@ async function createKvManualMember(req) {
   if (!fullName) throw validationError("Consulta el DNI para completar los nombres.");
   if (!profession) throw validationError("Completa la profesion.");
   if (!isValidEmail(email)) throw validationError("Correo invalido.");
-  if (!/^9\d{8}$/.test(phone)) throw validationError("Ingresa un celular valido de 9 digitos.");
+  if (phone && !/^9\d{8}$/.test(phone)) throw validationError("Ingresa un celular valido de 9 digitos.");
   if (!files.degreePdf) throw validationError("Sube el PDF del titulo profesional.");
   if (!["EFECTIVO", "MERCADO_PAGO"].includes(paymentMethod)) throw validationError("Selecciona un metodo de pago valido.");
   if (paymentMethod === "EFECTIVO" && !receiptData) throw validationError("Sube la imagen o PDF del comprobante de pago.");
@@ -259,7 +259,7 @@ async function createMemberPayment(req, res) {
   res.status(201).json({ message: `${periods.length} pago(s) registrado(s).`, status });
 }
 
-async function notifyMemberWhatsApp(req, res) {
+async function notifyMemberEmail(req, res) {
   let member;
   let payments;
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
@@ -267,7 +267,7 @@ async function notifyMemberWhatsApp(req, res) {
     payments = member ? await store().listMemberPayments(member.id) : [];
   } else {
     [[member]] = await getPool().query(
-      `SELECT m.*, u.full_name, u.phone FROM members m JOIN users u ON u.id = m.user_id WHERE m.id = ?`,
+      `SELECT m.*, u.full_name, u.email FROM members m JOIN users u ON u.id = m.user_id WHERE m.id = ?`,
       [req.params.id]
     );
     if (member) [payments] = await getPool().query("SELECT * FROM payments WHERE member_id = ?", [member.id]);
@@ -275,13 +275,8 @@ async function notifyMemberWhatsApp(req, res) {
   if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });
   const debt = withDebt(member, payments);
   if (!debt.debt_count) return res.status(409).json({ message: "El colegiado no tiene mensualidades vencidas." });
-  const result = await sendDebtNotice({ phone: member.phone, fullName: member.full_name, debtAmount: debt.debt_amount, pendingPeriods: debt.pending_periods });
-  if (!result.configured) {
-    const phone = normalizePeruPhone(member.phone);
-    const text = encodeURIComponent(`Hola ${member.full_name}, registra una deuda de S/ ${debt.debt_amount.toFixed(2)} por las mensualidades ${debt.pending_periods.join(", ")}. Colegio de Ingenieros del Peru.`);
-    return res.json({ sent: false, configured: false, whatsapp_url: `https://wa.me/${phone}?text=${text}`, message: "WhatsApp Cloud API no esta configurado; se genero un enlace de envio manual." });
-  }
-  res.json({ ...result, message: "Notificacion enviada por WhatsApp." });
+  const result = await sendDebtNoticeEmail({ email: member.email, fullName: member.full_name, debtAmount: debt.debt_amount, pendingPeriods: debt.pending_periods });
+  res.json({ ...result, message: "Notificacion enviada por correo." });
 }
 
 module.exports = {
@@ -290,5 +285,5 @@ module.exports = {
   updateMemberStatus,
   listMemberPayments,
   createMemberPayment,
-  notifyMemberWhatsApp,
+  notifyMemberEmail,
 };

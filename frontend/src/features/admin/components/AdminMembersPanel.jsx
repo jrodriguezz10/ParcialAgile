@@ -1,4 +1,4 @@
-import { MessageCircle, ReceiptText, RefreshCw, Search, X } from "lucide-react";
+import { Mail, ReceiptText, RefreshCw, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { VirtualCard } from "../../../components/VirtualCard";
 import { Button, DataTable, StatusBadge } from "../../../components/ui";
@@ -23,7 +23,7 @@ export function AdminMembersPanel({
   onRegisterPayment,
   onOpenCard,
   onCloseMember,
-  onNotifyWhatsApp,
+  onNotifyEmail,
 }) {
   const [memberSearch, setMemberSearch] = useState("");
   const normalizedSearch = memberSearch.trim().toLowerCase();
@@ -92,8 +92,8 @@ export function AdminMembersPanel({
             <button className="inline-action" onClick={() => onOpenCard(member)}>
               Carnet
             </button>
-            {member.debt_count > 0 && <button className="inline-action" onClick={() => onNotifyWhatsApp(member)} disabled={!member.phone} title={member.phone ? "Notificar deuda por WhatsApp" : "Registra un celular para notificar"}>
-              <MessageCircle size={15} /> WhatsApp
+            {member.debt_count > 0 && <button className="inline-action" onClick={() => onNotifyEmail(member)} disabled={!member.email} title={member.email ? "Notificar deuda por correo" : "Registra un correo para notificar"}>
+              <Mail size={15} /> Correo
             </button>}
           </span>,
         ])}

@@ -137,11 +137,6 @@ async function createMonthlyPayment(req, res) {
       return res.status(409).json({ message: "Solo los colegiados aprobados pueden pagar mensualidad." });
     }
 
-    const enrollmentPeriod = periodFromDate(member.enrollment_date);
-    if (comparePeriods(period, enrollmentPeriod) < 0) {
-      return res.status(422).json({ message: `Solo puedes pagar desde tu mes de inscripcion (${enrollmentPeriod}).` });
-    }
-
     const existingPaid = (await store().listMemberPayments(member.id)).find(
       (payment) => payment.period_month === period && payment.payment_type === "MENSUALIDAD" && payment.status === "PAGADO"
     );
@@ -191,11 +186,6 @@ async function createMonthlyPayment(req, res) {
   const [[member]] = await pool.query("SELECT * FROM members WHERE user_id = ?", [req.auth.sub]);
   if (!member) {
     return res.status(409).json({ message: "Solo los colegiados aprobados pueden pagar mensualidad." });
-  }
-
-  const enrollmentPeriod = periodFromDate(member.enrollment_date);
-  if (comparePeriods(period, enrollmentPeriod) < 0) {
-    return res.status(422).json({ message: `Solo puedes pagar desde tu mes de inscripción (${enrollmentPeriod}).` });
   }
 
   const [[existingPaid]] = await pool.query(

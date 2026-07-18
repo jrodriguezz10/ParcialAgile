@@ -104,19 +104,20 @@ La mensualidad es `S/ 20.00`.
 - El administrador puede registrar pagos manuales.
 - El cajero puede registrar varias mensualidades consecutivas en una sola operacion y consultar meses/monto vencido.
 
-## WhatsApp
+## Notificaciones por correo
 
-El modulo Caja genera un enlace de WhatsApp con el detalle de deuda. Para envio automatico mensual mediante WhatsApp Cloud API configure en Vercel:
+El modulo Caja envia avisos de deuda al correo registrado del colegiado. Para envio manual desde el panel y envio automatico mensual, configura SMTP en Vercel:
 
 ```text
-WHATSAPP_ACCESS_TOKEN=token-permanente-de-meta
-WHATSAPP_PHONE_NUMBER_ID=id-del-numero
-WHATSAPP_DEBT_TEMPLATE=monthly_debt_notice
-WHATSAPP_TEMPLATE_LANGUAGE=es
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tu-correo@gmail.com
+SMTP_PASS=tu-clave-de-aplicacion
+SMTP_FROM="Colegio de Ingenieros <tu-correo@gmail.com>"
 CRON_SECRET=secreto-aleatorio
 ```
 
-La plantilla aprobada en Meta debe recibir tres parametros: nombre del colegiado, monto de deuda y periodos vencidos. Vercel ejecuta el aviso el dia 5 de cada mes.
+Vercel ejecuta el aviso el dia 5 de cada mes mediante `/api/jobs/overdue-email`.
 
 ## Verificacion de carnet
 

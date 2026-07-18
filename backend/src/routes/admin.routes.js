@@ -50,6 +50,6 @@ router.get("/admin/members", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), a
 router.patch("/admin/members/:id/status", auth("admin"), asyncHandler(controller.updateMemberStatus));
 router.get("/admin/members/:id/payments", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.listMemberPayments));
 router.post("/admin/members/:id/payments", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.createMemberPayment));
-router.post("/admin/members/:id/notify-whatsapp", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.notifyMemberWhatsApp));
+router.post("/admin/members/:id/notify-email", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.notifyMemberEmail));
 
 module.exports = router;

@@ -210,8 +210,11 @@ async function submitPublicApplication(req, res) {
   if (dni.length !== 8) return res.status(422).json({ message: "Ingresa un DNI valido." });
   const identity = await requireValidDniIdentity(dni);
   fullName = identity.full_name;
-  if (!fullName || !email || !profession || !/^9\d{8}$/.test(phone)) {
-    return res.status(422).json({ message: "Completa nombres, correo, profesion y celular de 9 digitos." });
+  if (!fullName || !email || !profession) {
+    return res.status(422).json({ message: "Completa nombres, correo y profesion." });
+  }
+  if (phone && !/^9\d{8}$/.test(phone)) {
+    return res.status(422).json({ message: "Si ingresas celular, debe tener 9 digitos." });
   }
   if (!isValidEmail(email)) return res.status(422).json({ message: "Usa un correo valido." });
 

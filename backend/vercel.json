@@ -12,5 +12,5 @@
       "dest": "api/index.js"
     }
   ],
-  "crons": [{ "path": "/api/jobs/overdue-whatsapp", "schedule": "0 14 5 * *" }]
+  "crons": [{ "path": "/api/jobs/overdue-email", "schedule": "0 14 5 * *" }]
 }

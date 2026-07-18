@@ -349,11 +349,10 @@ export function AdminDashboard({ token, onLogout }) {
     }
   }
 
-  async function notifyWhatsApp(member) {
+  async function notifyEmail(member) {
     setMessage("");
     try {
-      const data = await api(`/api/admin/members/${member.id}/notify-whatsapp`, { method: "POST", token });
-      if (data.whatsapp_url) window.open(data.whatsapp_url, "_blank", "noopener,noreferrer");
+      const data = await api(`/api/admin/members/${member.id}/notify-email`, { method: "POST", token });
       setMessage(data.message || "Notificacion de deuda procesada.");
     } catch (error) {
       setMessage(error.message);
@@ -494,7 +493,7 @@ export function AdminDashboard({ token, onLogout }) {
         memberCardRef={memberCardRef} onFilterChange={setMemberFilter} onRefresh={loadAll}
         onOpenPayments={openMemberPayments} onManualPeriodChange={setManualPeriod} onPaymentCountChange={setPaymentCount}
         onRegisterPayment={registerManualPayment} onOpenCard={openMemberPayments}
-        onNotifyWhatsApp={notifyWhatsApp}
+        onNotifyEmail={notifyEmail}
         onCloseMember={() => { setSelectedMember(null); setMemberPayments([]); }}
       />
 

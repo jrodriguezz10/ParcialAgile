@@ -41,7 +41,7 @@ function createApp() {
   app.use("/api", userRoutes);
   app.use("/api", adminRoutes);
   app.use("/api", paymentsRoutes);
-  app.get("/api/jobs/overdue-whatsapp", asyncHandler(jobsController.notifyOverdueWhatsApp));
+  app.get("/api/jobs/overdue-email", asyncHandler(jobsController.notifyOverdueEmail));
 
   app.use(errorHandler);
   return app;

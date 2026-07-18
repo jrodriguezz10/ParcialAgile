@@ -93,8 +93,11 @@ async function updateProfile(req, res) {
   const branch = String(req.body.branch || "Consejo Nacional - Lima").trim();
   const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
 
-  if (!fullName || !email || !profession || !/^9\d{8}$/.test(phone)) {
-    return res.status(422).json({ message: "Completa nombres, correo, profesion y celular de 9 digitos." });
+  if (!fullName || !email || !profession) {
+    return res.status(422).json({ message: "Completa nombres, correo y profesion." });
+  }
+  if (phone && !/^9\d{8}$/.test(phone)) {
+    return res.status(422).json({ message: "Si ingresas celular, debe tener 9 digitos." });
   }
   if (!isValidEmail(email)) {
     return res.status(422).json({ message: "Usa un correo valido." });
@@ -130,8 +133,11 @@ async function submitApplication(req, res) {
   }
   const identity = await requireValidDniIdentity(dni);
   fullName = identity.full_name;
-  if (!fullName || !email || !profession || !/^9\d{8}$/.test(phone)) {
-    return res.status(422).json({ message: "Completa nombres, correo, profesion y celular de 9 digitos." });
+  if (!fullName || !email || !profession) {
+    return res.status(422).json({ message: "Completa nombres, correo y profesion." });
+  }
+  if (phone && !/^9\d{8}$/.test(phone)) {
+    return res.status(422).json({ message: "Si ingresas celular, debe tener 9 digitos." });
   }
   if (!isValidEmail(email)) {
     return res.status(422).json({ message: "Usa un correo valido." });
