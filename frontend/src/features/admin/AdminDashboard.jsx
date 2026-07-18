@@ -25,6 +25,12 @@ const ADMIN_NAV_ITEMS = [
   { keyName: "configuracion", icon: Settings, label: "Configuracion", text: "Admins" },
 ];
 
+const MONTHLY_AMOUNT = 20;
+
+function defaultPaymentMethods(total = MONTHLY_AMOUNT) {
+  return [{ method: "EFECTIVO", amount: total }];
+}
+
 export function AdminDashboard({ token, onLogout }) {
   const [applications, setApplications] = useState([]);
   const [allApplications, setAllApplications] = useState([]);
@@ -40,11 +46,12 @@ export function AdminDashboard({ token, onLogout }) {
   const [observations, setObservations] = useState("");
   const [manualPeriod, setManualPeriod] = useState(currentPeriod());
   const [paymentCount, setPaymentCount] = useState(1);
+  const [manualPaymentMethods, setManualPaymentMethods] = useState(defaultPaymentMethods());
   const [adminForm, setAdminForm] = useState({ name: "", dni: "", email: "", phone: "", role: "ADMIN_SEDE", branch: "Consejo Nacional - Lima", password: "" });
   const [newAdmin, setNewAdmin] = useState({ name: "", dni: "", email: "", phone: "", role: "CAJERO", branch: "Consejo Nacional - Lima", password: "" });
   const [manualMember, setManualMember] = useState(blankManualMember);
   const [manualFiles, setManualFiles] = useState({ photo: null, degreePdf: null, receipt: null });
-  const [registrationPayment, setRegistrationPayment] = useState({ period_month: currentPeriod(), method: "EFECTIVO" });
+  const [registrationPayment, setRegistrationPayment] = useState({ period_month: currentPeriod(), method: "EFECTIVO", methods: defaultPaymentMethods() });
   const [dniLookupLoading, setDniLookupLoading] = useState(false);
   const [adminLookupLoading, setAdminLookupLoading] = useState(false);
   const [newAdminLookupLoading, setNewAdminLookupLoading] = useState(false);
@@ -186,6 +193,8 @@ export function AdminDashboard({ token, onLogout }) {
   async function openMemberPayments(member) {
     setSelectedMember(member);
     setManualPeriod(currentPeriod());
+    setPaymentCount(1);
+    setManualPaymentMethods(defaultPaymentMethods());
     try {
       const data = await api(`/api/admin/members/${member.id}/payments`, { token });
       setMemberPayments(data);
@@ -314,7 +323,7 @@ export function AdminDashboard({ token, onLogout }) {
       setSelectedMember(data);
       setManualFiles({ photo: null, degreePdf: null, receipt: null });
       setManualMember(blankManualMember);
-      setRegistrationPayment({ period_month: currentPeriod(), method: "EFECTIVO" });
+      setRegistrationPayment({ period_month: currentPeriod(), method: "EFECTIVO", methods: defaultPaymentMethods() });
       await Promise.all([loadMembers(), loadMemberSummary(), loadApplicationSummary()]);
       if (data.checkout_url) {
         window.open(data.checkout_url, "_blank", "noopener,noreferrer");
@@ -340,13 +349,21 @@ export function AdminDashboard({ token, onLogout }) {
       await api(`/api/admin/members/${selectedMember.id}/payments`, {
         method: "POST",
         token,
-        body: { periods, amount: 20 },
+        body: { periods, amount: MONTHLY_AMOUNT, payment_methods: manualPaymentMethods },
       });
       await Promise.all([loadMembers(), loadMemberSummary(), openMemberPayments(selectedMember)]);
       setMessage("Pago manual registrado.");
     } catch (error) {
       setMessage(error.message);
     }
+  }
+
+  function updatePaymentCount(value) {
+    const nextCount = Math.max(1, Number(value) || 1);
+    setPaymentCount(nextCount);
+    setManualPaymentMethods((current) =>
+      current.length === 1 ? [{ ...current[0], amount: nextCount * MONTHLY_AMOUNT }] : current
+    );
   }
 
   async function notifyEmail(member) {
@@ -490,8 +507,10 @@ export function AdminDashboard({ token, onLogout }) {
       <AdminMembersPanel
         activeModule={activeModule} members={members} memberFilter={memberFilter}
         selectedMember={selectedMember} memberPayments={memberPayments} manualPeriod={manualPeriod} paymentCount={paymentCount}
+        manualPaymentMethods={manualPaymentMethods}
         memberCardRef={memberCardRef} onFilterChange={setMemberFilter} onRefresh={loadAll}
-        onOpenPayments={openMemberPayments} onManualPeriodChange={setManualPeriod} onPaymentCountChange={setPaymentCount}
+        onOpenPayments={openMemberPayments} onManualPeriodChange={setManualPeriod} onPaymentCountChange={updatePaymentCount}
+        onManualPaymentMethodsChange={setManualPaymentMethods}
         onRegisterPayment={registerManualPayment} onOpenCard={openMemberPayments}
         onNotifyEmail={notifyEmail}
         onCloseMember={() => { setSelectedMember(null); setMemberPayments([]); }}

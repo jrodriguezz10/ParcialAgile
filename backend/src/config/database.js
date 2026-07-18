@@ -163,6 +163,7 @@ async function migrate() {
       amount DECIMAL(10,2) NOT NULL DEFAULT 20.00,
       payment_type VARCHAR(20) NOT NULL DEFAULT 'MENSUALIDAD',
       method VARCHAR(30) NOT NULL DEFAULT 'MERCADO_PAGO',
+      method_detail TEXT NULL,
       status VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
       paid_at TIMESTAMP NULL,
       external_reference VARCHAR(120) NULL UNIQUE,
@@ -231,6 +232,7 @@ async function migrate() {
   await ensureColumn("admins", "branch", "VARCHAR(120) NOT NULL DEFAULT 'Consejo Nacional - Lima' AFTER role");
   await ensureColumn("users", "branch", "VARCHAR(120) NOT NULL DEFAULT 'Consejo Nacional - Lima' AFTER profession");
   await ensureColumn("payments", "payment_type", "VARCHAR(20) NOT NULL DEFAULT 'MENSUALIDAD' AFTER amount");
+  await ensureColumn("payments", "method_detail", "TEXT NULL AFTER method");
   await pool.query(
     `UPDATE payments
      SET payment_type = 'INSCRIPCION'

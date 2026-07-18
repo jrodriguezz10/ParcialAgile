@@ -105,7 +105,7 @@ export function downloadPaymentReceiptPdf(payment, payer = {}) {
   const concept = payment.payment_type === "INSCRIPCION"
     ? "Pago por derecho a carnet CIP"
     : `Mensualidad CIP periodo ${safeText(payment.period_month)}`;
-  doc.text(split(doc, `${concept} (${safeText(payment.method)})`, 88), 42, 124);
+  doc.text(split(doc, `${concept} (${safeText(payment.method_detail || payment.method)})`, 88), 42, 124);
   doc.text(formatMoney(amount), 145, 124, { align: "right" });
   doc.text(formatMoney(amount), 184, 124, { align: "right" });
 

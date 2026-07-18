@@ -422,6 +422,7 @@ async function createMemberPayment(memberId, periodMonth, amount = 20, adminId =
     Object.assign(payment, {
       amount,
       method,
+      method_detail: options.method_detail || payment.method_detail || null,
       status,
       paid_at: paidAt,
       payment_type: paymentType,
@@ -441,6 +442,7 @@ async function createMemberPayment(memberId, periodMonth, amount = 20, adminId =
       amount,
       payment_type: paymentType,
       method,
+      method_detail: options.method_detail || null,
       status,
       paid_at: paidAt,
       receipt_path: options.receipt_path || null,

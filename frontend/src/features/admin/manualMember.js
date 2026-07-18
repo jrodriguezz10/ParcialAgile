@@ -34,6 +34,7 @@ export function createManualMemberPayload(member, files = {}, payment = {}) {
   Object.entries(member).forEach(([key, value]) => payload.append(key, value || ""));
   payload.append("payment_period_month", payment.period_month || "");
   payload.append("payment_method", payment.method || "EFECTIVO");
+  payload.append("payment_methods", JSON.stringify(payment.methods || []));
   if (files.photo) payload.append("photo", files.photo);
   if (files.degreePdf) payload.append("degreePdf", files.degreePdf);
   if (files.receipt) payload.append("receipt", files.receipt);

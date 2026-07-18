@@ -921,6 +921,40 @@
   gap: 12px;
 }
 
+.payment-methods {
+  width: 100%;
+  flex: 1 0 100%;
+  display: grid;
+  gap: 8px;
+}
+
+.payment-method-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(96px, 130px) 38px;
+  gap: 8px;
+  align-items: center;
+}
+
+.payment-method-row select,
+.payment-method-row input {
+  min-height: 40px;
+  max-width: none;
+}
+
+.payment-total {
+  display: block;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.payment-total.warning {
+  color: var(--danger);
+}
+
+.payment-total.ok {
+  color: var(--green);
+}
+
 .member-toolbar {
   margin-bottom: 16px;
   display: grid;

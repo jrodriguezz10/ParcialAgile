@@ -390,6 +390,7 @@ async function createMemberPayment(memberId, periodMonth, amount = 20, adminId =
     Object.assign(existing, {
       amount,
       method,
+      method_detail: options.method_detail || existing.method_detail || null,
       status,
       paid_at: resolvedPaidAt,
       external_reference: options.external_reference || existing.external_reference || null,
@@ -408,6 +409,7 @@ async function createMemberPayment(memberId, periodMonth, amount = 20, adminId =
       amount,
       payment_type: "MENSUALIDAD",
       method,
+      method_detail: options.method_detail || null,
       status,
       paid_at: resolvedPaidAt,
       external_reference: options.external_reference || null,

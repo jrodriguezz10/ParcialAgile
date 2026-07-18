@@ -1,4 +1,4 @@
-import { CreditCard, Download, Search } from "lucide-react";
+import { CreditCard, Download, Plus, Search, Trash2 } from "lucide-react";
 import { VirtualCard } from "../../../components/VirtualCard";
 import { Button, StatusBadge } from "../../../components/ui";
 import { downloadPaymentReceiptPdf } from "../../../utils/pdf";
@@ -20,6 +20,9 @@ export function AdminRegisterPanel({
   onSubmit,
   onlyDniDigits,
 }) {
+  const registrationPaymentTotal = (registrationPayment.methods || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const registrationPaymentMatches = registrationPayment.method === "MERCADO_PAGO" || Math.abs(registrationPaymentTotal - 20) <= 0.01;
+
   return (
     <section className={`panel ${activeModule === "registro" ? "" : "module-hidden"}`} id="admin-registro">
       <div className="section-title">
@@ -111,7 +114,7 @@ export function AdminRegisterPanel({
                   type="file"
                   accept="image/png,image/jpeg,image/webp,application/pdf"
                   onChange={(event) => onManualFileChange((current) => ({ ...current, receipt: event.target.files?.[0] || null }))}
-                  required={registrationPayment.method === "EFECTIVO"}
+                  required={registrationPayment.method !== "MERCADO_PAGO"}
                   disabled={registrationPayment.method === "MERCADO_PAGO"}
                 />
               </label>
@@ -129,14 +132,38 @@ export function AdminRegisterPanel({
               Método de pago
               <select
                 value={registrationPayment.method}
-                onChange={(event) => onRegistrationPaymentChange((current) => ({ ...current, method: event.target.value }))}
+                onChange={(event) => onRegistrationPaymentChange((current) => ({
+                  ...current,
+                  method: event.target.value,
+                  methods: [{ method: event.target.value, amount: 20 }],
+                }))}
               >
                 <option value="EFECTIVO">Efectivo</option>
+                <option value="YAPE">Yape</option>
+                <option value="PLIN">Plin</option>
+                <option value="TARJETA">Tarjeta</option>
+                <option value="TRANSFERENCIA">Transferencia</option>
                 <option value="MERCADO_PAGO">Mercado Pago</option>
               </select>
             </label>
+            {registrationPayment.method !== "MERCADO_PAGO" && (
+              <div className="wide">
+                <PaymentMethodsEditor
+                  methods={registrationPayment.methods}
+                  expectedTotal={20}
+                  onChange={(methods) => onRegistrationPaymentChange((current) => ({
+                    ...current,
+                    method: methods[0]?.method || "EFECTIVO",
+                    methods,
+                  }))}
+                />
+                <small className={registrationPaymentMatches ? "payment-total ok" : "payment-total warning"}>
+                  Total a registrar S/ {Number(registrationPaymentTotal).toFixed(2)} de S/ 20.00
+                </small>
+              </div>
+            )}
           </div>
-          <Button icon={CreditCard}>
+          <Button icon={CreditCard} disabled={!registrationPaymentMatches}>
             {registrationPayment.method === "MERCADO_PAGO" ? "Registrar y abrir Mercado Pago" : "Registrar pago y generar carnet"}
           </Button>
         </form>
@@ -182,5 +209,56 @@ export function AdminRegisterPanel({
         </div>
       </div>
     </section>
+  );
+}
+
+const PAYMENT_METHODS = [
+  { value: "EFECTIVO", label: "Efectivo" },
+  { value: "YAPE", label: "Yape" },
+  { value: "PLIN", label: "Plin" },
+  { value: "TARJETA", label: "Tarjeta" },
+  { value: "TRANSFERENCIA", label: "Transferencia" },
+];
+
+function PaymentMethodsEditor({ methods = [], expectedTotal, onChange }) {
+  const rows = methods.length ? methods : [{ method: "EFECTIVO", amount: expectedTotal }];
+
+  function updateRow(index, patch) {
+    onChange(rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)));
+  }
+
+  function addRow() {
+    onChange([...rows, { method: "YAPE", amount: 0 }]);
+  }
+
+  function removeRow(index) {
+    const nextRows = rows.filter((_, rowIndex) => rowIndex !== index);
+    onChange(nextRows.length ? nextRows : [{ method: "EFECTIVO", amount: expectedTotal }]);
+  }
+
+  return (
+    <div className="payment-methods">
+      {rows.map((row, index) => (
+        <div className="payment-method-row" key={`${row.method}-${index}`}>
+          <select value={row.method} onChange={(event) => updateRow(index, { method: event.target.value })}>
+            {PAYMENT_METHODS.map((method) => <option value={method.value} key={method.value}>{method.label}</option>)}
+          </select>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={row.amount}
+            onChange={(event) => updateRow(index, { amount: Number(event.target.value) || 0 })}
+            aria-label="Monto por medio de pago"
+          />
+          <button type="button" className="icon-btn" onClick={() => removeRow(index)} aria-label="Quitar medio de pago">
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ))}
+      <button type="button" className="inline-action" onClick={addRow}>
+        <Plus size={15} /> Agregar medio
+      </button>
+    </div>
   );
 }

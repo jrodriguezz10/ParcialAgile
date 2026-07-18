@@ -1,4 +1,4 @@
-import { Mail, ReceiptText, RefreshCw, Search, X } from "lucide-react";
+import { Mail, Plus, ReceiptText, RefreshCw, Search, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { VirtualCard } from "../../../components/VirtualCard";
 import { Button, DataTable, StatusBadge } from "../../../components/ui";
@@ -14,12 +14,14 @@ export function AdminMembersPanel({
   memberPayments,
   manualPeriod,
   paymentCount,
+  manualPaymentMethods,
   memberCardRef,
   onFilterChange,
   onRefresh,
   onOpenPayments,
   onManualPeriodChange,
   onPaymentCountChange,
+  onManualPaymentMethodsChange,
   onRegisterPayment,
   onOpenCard,
   onCloseMember,
@@ -34,6 +36,9 @@ export function AdminMembersPanel({
       return haystack.includes(normalizedSearch);
     });
   }, [members, normalizedSearch]);
+  const expectedTotal = paymentCount * 20;
+  const paymentTotal = (manualPaymentMethods || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const paymentTotalMatches = Math.abs(paymentTotal - expectedTotal) <= 0.01;
 
   return (
     <section className={`panel ${activeModule === "padron" ? "" : "module-hidden"}`} id="admin-padron">
@@ -124,7 +129,15 @@ export function AdminMembersPanel({
                 <form className="payment-controls" onSubmit={onRegisterPayment}>
                   <input type="month" value={manualPeriod} onChange={(event) => onManualPeriodChange(event.target.value)} />
                   <input type="number" min="1" max="60" value={paymentCount} onChange={(event) => onPaymentCountChange(Math.max(1, Number(event.target.value) || 1))} aria-label="Cantidad de mensualidades" />
-                  <Button icon={ReceiptText}>Cobrar {paymentCount} mensualidad{paymentCount > 1 ? "es" : ""}</Button>
+                  <PaymentMethodsEditor
+                    methods={manualPaymentMethods}
+                    expectedTotal={expectedTotal}
+                    onChange={onManualPaymentMethodsChange}
+                  />
+                  <small className={paymentTotalMatches ? "payment-total ok" : "payment-total warning"}>
+                    Total medios S/ {paymentTotal.toFixed(2)} de S/ {expectedTotal.toFixed(2)}
+                  </small>
+                  <Button icon={ReceiptText} disabled={!paymentTotalMatches}>Cobrar {paymentCount} mensualidad{paymentCount > 1 ? "es" : ""}</Button>
                 </form>
               </div>
               <DataTable
@@ -133,7 +146,7 @@ export function AdminMembersPanel({
                   payment.payment_type === "INSCRIPCION" ? "Inscripción" : "Mensualidad",
                   payment.period_month,
                   `S/ ${Number(payment.amount).toFixed(2)}`,
-                  payment.method,
+                  payment.method_detail || payment.method,
                   <StatusBadge status={payment.status} />,
                   formatDate(payment.paid_at || payment.created_at),
                   payment.status === "PAGADO" ? (
@@ -154,5 +167,56 @@ export function AdminMembersPanel({
         </div>
       )}
     </section>
+  );
+}
+
+const PAYMENT_METHODS = [
+  { value: "EFECTIVO", label: "Efectivo" },
+  { value: "YAPE", label: "Yape" },
+  { value: "PLIN", label: "Plin" },
+  { value: "TARJETA", label: "Tarjeta" },
+  { value: "TRANSFERENCIA", label: "Transferencia" },
+];
+
+function PaymentMethodsEditor({ methods = [], expectedTotal, onChange }) {
+  const rows = methods.length ? methods : [{ method: "EFECTIVO", amount: expectedTotal }];
+
+  function updateRow(index, patch) {
+    onChange(rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)));
+  }
+
+  function addRow() {
+    onChange([...rows, { method: "YAPE", amount: 0 }]);
+  }
+
+  function removeRow(index) {
+    const nextRows = rows.filter((_, rowIndex) => rowIndex !== index);
+    onChange(nextRows.length ? nextRows : [{ method: "EFECTIVO", amount: expectedTotal }]);
+  }
+
+  return (
+    <div className="payment-methods wide">
+      {rows.map((row, index) => (
+        <div className="payment-method-row" key={`${row.method}-${index}`}>
+          <select value={row.method} onChange={(event) => updateRow(index, { method: event.target.value })}>
+            {PAYMENT_METHODS.map((method) => <option value={method.value} key={method.value}>{method.label}</option>)}
+          </select>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={row.amount}
+            onChange={(event) => updateRow(index, { amount: Number(event.target.value) || 0 })}
+            aria-label="Monto por medio de pago"
+          />
+          <button type="button" className="icon-btn" onClick={() => removeRow(index)} aria-label="Quitar medio de pago">
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ))}
+      <button type="button" className="inline-action" onClick={addRow}>
+        <Plus size={15} /> Agregar medio
+      </button>
+    </div>
   );
 }

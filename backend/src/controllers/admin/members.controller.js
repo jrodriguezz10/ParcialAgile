@@ -46,6 +46,75 @@ function validationError(message, statusCode = 422) {
   return error;
 }
 
+const PAYMENT_METHOD_LABELS = {
+  EFECTIVO: "Efectivo",
+  YAPE: "Yape",
+  PLIN: "Plin",
+  TARJETA: "Tarjeta",
+  TRANSFERENCIA: "Transferencia",
+  MERCADO_PAGO: "Mercado Pago",
+};
+
+function paymentMethodSummary(methods, expectedTotal, options = {}) {
+  let source = Array.isArray(methods) ? methods : [];
+  if (!source.length && methods) {
+    try {
+      const parsed = JSON.parse(String(methods));
+      source = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      source = [];
+    }
+  }
+  const normalized = source
+    .map((item) => ({
+      method: String(item?.method || "").trim().toUpperCase(),
+      amount: Number(item?.amount || 0),
+    }))
+    .filter((item) => item.method && item.amount > 0);
+
+  if (!normalized.length) return { method: "MANUAL", detail: null };
+  const invalid = normalized.find((item) => !PAYMENT_METHOD_LABELS[item.method] || (!options.allowMercadoPago && item.method === "MERCADO_PAGO"));
+  if (invalid) throw validationError("Selecciona medios de pago presenciales validos.");
+  if (options.allowMercadoPago && normalized.some((item) => item.method === "MERCADO_PAGO") && normalized.length > 1) {
+    throw validationError("Mercado Pago debe registrarse como unico medio para abrir checkout.");
+  }
+
+  const total = normalized.reduce((sum, item) => sum + item.amount, 0);
+  if (Math.abs(total - expectedTotal) > 0.01) {
+    throw validationError(`Los medios de pago deben sumar S/ ${expectedTotal.toFixed(2)}.`);
+  }
+
+  return {
+    method: normalized.length > 1 ? "MIXTO" : normalized[0].method,
+    detail: normalized.map((item) => `${PAYMENT_METHOD_LABELS[item.method]} S/ ${item.amount.toFixed(2)}`).join(" + "),
+  };
+}
+
+function proratedPaymentMethodSummary(methods, divisor, fallback) {
+  if (divisor <= 1) return fallback;
+  let source = Array.isArray(methods) ? methods : [];
+  if (!source.length && methods) {
+    try {
+      const parsed = JSON.parse(String(methods));
+      source = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      source = [];
+    }
+  }
+  const normalized = source
+    .map((item) => ({
+      method: String(item?.method || "").trim().toUpperCase(),
+      amount: Number(item?.amount || 0) / divisor,
+    }))
+    .filter((item) => item.method && item.amount > 0);
+  if (!normalized.length) return fallback;
+  return {
+    method: normalized.length > 1 ? "MIXTO" : normalized[0].method,
+    detail: normalized.map((item) => `${PAYMENT_METHOD_LABELS[item.method]} S/ ${item.amount.toFixed(2)}`).join(" + "),
+  };
+}
+
+
 async function createKvManualMember(req) {
   const dni = normalizeDni(req.body.dni);
   const fullName = String(req.body.full_name || "").trim();
@@ -53,7 +122,10 @@ async function createKvManualMember(req) {
   const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
   const profession = String(req.body.profession || "").trim();
   const paymentPeriod = isValidPeriod(req.body.payment_period_month) ? req.body.payment_period_month : currentPeriod();
-  const paymentMethod = String(req.body.payment_method || "EFECTIVO").trim().toUpperCase();
+  const paymentSummary = paymentMethodSummary(req.body.payment_methods, 20, { allowMercadoPago: true });
+  const paymentMethod = paymentSummary.method === "MANUAL"
+    ? String(req.body.payment_method || "EFECTIVO").trim().toUpperCase()
+    : paymentSummary.method;
   const receiptData = fileDataUrl(req.files?.receipt?.[0]);
   const files = {
     photo: fileDataUrl(req.files?.photo?.[0]),
@@ -67,8 +139,8 @@ async function createKvManualMember(req) {
   if (!isValidEmail(email)) throw validationError("Correo invalido.");
   if (phone && !/^9\d{8}$/.test(phone)) throw validationError("Ingresa un celular valido de 9 digitos.");
   if (!files.degreePdf) throw validationError("Sube el PDF del titulo profesional.");
-  if (!["EFECTIVO", "MERCADO_PAGO"].includes(paymentMethod)) throw validationError("Selecciona un metodo de pago valido.");
-  if (paymentMethod === "EFECTIVO" && !receiptData) throw validationError("Sube la imagen o PDF del comprobante de pago.");
+  if (!["EFECTIVO", "YAPE", "PLIN", "TARJETA", "TRANSFERENCIA", "MIXTO", "MERCADO_PAGO"].includes(paymentMethod)) throw validationError("Selecciona un metodo de pago valido.");
+  if (paymentMethod !== "MERCADO_PAGO" && !receiptData) throw validationError("Sube la imagen o PDF del comprobante de pago.");
 
   const { application } = await kv.createPublicApplication({
     body: { dni, full_name: fullName, email, phone, profession, branch: String(req.body.branch || "Consejo Nacional - Lima") },
@@ -88,6 +160,7 @@ async function createKvManualMember(req) {
     external_reference: externalReference,
     payment_type: "INSCRIPCION",
     receipt_path: application.receipt_path,
+    method_detail: paymentSummary.detail,
   });
 
   let mercadoPago = {};
@@ -113,6 +186,7 @@ async function createKvManualMember(req) {
           mp_preference_id: mercadoPago.preference_id,
           payment_type: "INSCRIPCION",
           receipt_path: application.receipt_path,
+          method_detail: paymentSummary.detail,
         });
       }
     } catch {
@@ -227,12 +301,19 @@ async function createMemberPayment(req, res) {
   const periods = [...new Set(requestedPeriods.map(String))];
   const period = periods[0];
   const amount = Number(req.body.amount || 20);
+  const paymentTotal = periods.length * amount;
+  const paymentSummary = paymentMethodSummary(req.body.payment_methods, paymentTotal);
+  const perPeriodPaymentSummary = proratedPaymentMethodSummary(req.body.payment_methods, periods.length, paymentSummary);
   if (!periods.length || periods.some((item) => !isValidPeriod(item))) return res.status(422).json({ message: "Periodo invalido. Usa YYYY-MM." });
   if (amount <= 0) return res.status(422).json({ message: "Monto invalido." });
 
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     let created;
-    for (const item of periods) created = await store().createMemberPayment(req.params.id, item, amount, req.auth.sub);
+    for (const item of periods) {
+      created = await store().createMemberPayment(req.params.id, item, amount, req.auth.sub, perPeriodPaymentSummary.method, {
+        method_detail: perPeriodPaymentSummary.detail,
+      });
+    }
     if (!created) return res.status(404).json({ message: "Colegiado no encontrado." });
     return res.status(201).json({ message: `${periods.length} pago(s) registrado(s).`, status: created.member.status, payment: created.payment });
   }
@@ -244,15 +325,16 @@ async function createMemberPayment(req, res) {
 
   for (const item of periods) await pool.query(
     `INSERT INTO payments
-       (member_id, user_id, period_month, amount, payment_type, method, status, paid_at, created_by_admin)
-     VALUES (?, ?, ?, ?, 'MENSUALIDAD', 'MANUAL', 'PAGADO', CURRENT_TIMESTAMP, ?)
+       (member_id, user_id, period_month, amount, payment_type, method, method_detail, status, paid_at, created_by_admin)
+     VALUES (?, ?, ?, ?, 'MENSUALIDAD', ?, ?, 'PAGADO', CURRENT_TIMESTAMP, ?)
      ON DUPLICATE KEY UPDATE
        amount = VALUES(amount),
-       method = 'MANUAL',
+       method = VALUES(method),
+       method_detail = VALUES(method_detail),
        status = 'PAGADO',
        paid_at = CURRENT_TIMESTAMP,
        created_by_admin = VALUES(created_by_admin)`,
-    [member.id, member.user_id, item, amount, req.auth.sub]
+    [member.id, member.user_id, item, amount, perPeriodPaymentSummary.method, perPeriodPaymentSummary.detail, req.auth.sub]
   );
 
   const status = await refreshMemberStatus(member.id);

@@ -12,6 +12,58 @@ function validationError(message, statusCode = 422) {
   return error;
 }
 
+const PAYMENT_METHOD_LABELS = {
+  EFECTIVO: "Efectivo",
+  YAPE: "Yape",
+  PLIN: "Plin",
+  TARJETA: "Tarjeta",
+  TRANSFERENCIA: "Transferencia",
+  MERCADO_PAGO: "Mercado Pago",
+};
+
+function parsePaymentMethods(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function paymentMethodSummary(methods, expectedTotal, fallbackMethod) {
+  const normalized = parsePaymentMethods(methods)
+    .map((item) => ({
+      method: String(item?.method || "").trim().toUpperCase(),
+      amount: Number(item?.amount || 0),
+    }))
+    .filter((item) => item.method && item.amount > 0);
+
+  if (!normalized.length) {
+    const method = String(fallbackMethod || "EFECTIVO").trim().toUpperCase();
+    return { method, detail: PAYMENT_METHOD_LABELS[method] ? `${PAYMENT_METHOD_LABELS[method]} S/ ${expectedTotal.toFixed(2)}` : null };
+  }
+
+  const invalid = normalized.find((item) => !PAYMENT_METHOD_LABELS[item.method]);
+  if (invalid) throw validationError("Selecciona medios de pago validos.");
+
+  const hasMercadoPago = normalized.some((item) => item.method === "MERCADO_PAGO");
+  if (hasMercadoPago && normalized.length > 1) {
+    throw validationError("Mercado Pago debe registrarse como unico medio para abrir checkout.");
+  }
+
+  const total = normalized.reduce((sum, item) => sum + item.amount, 0);
+  if (Math.abs(total - expectedTotal) > 0.01) {
+    throw validationError(`Los medios de pago deben sumar S/ ${expectedTotal.toFixed(2)}.`);
+  }
+
+  return {
+    method: normalized.length > 1 ? "MIXTO" : normalized[0].method,
+    detail: normalized.map((item) => `${PAYMENT_METHOD_LABELS[item.method]} S/ ${item.amount.toFixed(2)}`).join(" + "),
+  };
+}
+
 async function getRequiredDniIdentity(dni) {
   try {
     return await consultDniApi(dni);
@@ -37,8 +89,9 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
   const degreePdfPath = (storeFilesInDatabase ? fileDataUrl(files?.degreePdf?.[0]) : storedPath(files?.degreePdf?.[0])) || null;
   const receiptPath = (storeFilesInDatabase ? fileDataUrl(files?.receipt?.[0]) : storedPath(files?.receipt?.[0])) || null;
   const paymentPeriod = isValidPeriod(body.payment_period_month) ? body.payment_period_month : currentPeriod();
-  const paymentMethod = String(body.payment_method || "EFECTIVO").trim().toUpperCase();
   const paymentAmount = 20;
+  const paymentSummary = paymentMethodSummary(body.payment_methods, paymentAmount, body.payment_method);
+  const paymentMethod = paymentSummary.method;
 
   if (dni.length !== 8) throw validationError("DNI invalido.");
   if (!profession) throw validationError("Completa la profesion.");
@@ -46,10 +99,10 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
   if (!isValidEmail(email)) throw validationError("Correo invalido.");
   if (body.password && password.length < 6) throw validationError("La clave debe tener al menos 6 caracteres.");
   if (!degreePdfPath) throw validationError("Sube el PDF del titulo profesional.");
-  if (!["EFECTIVO", "MERCADO_PAGO"].includes(paymentMethod)) {
+  if (!["EFECTIVO", "YAPE", "PLIN", "TARJETA", "TRANSFERENCIA", "MIXTO", "MERCADO_PAGO"].includes(paymentMethod)) {
     throw validationError("Selecciona un metodo de pago valido.");
   }
-  if (paymentMethod === "EFECTIVO" && !receiptPath) {
+  if (paymentMethod !== "MERCADO_PAGO" && !receiptPath) {
     throw validationError("Sube la imagen o PDF del comprobante de pago.");
   }
 
@@ -107,9 +160,9 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
 
     const [paymentResult] = await connection.query(
       `INSERT INTO payments
-         (member_id, user_id, period_month, amount, payment_type, method, status, paid_at, receipt_path, external_reference, created_by_admin)
-       VALUES (?, ?, ?, ?, 'INSCRIPCION', ?, ?, ${paidAtSql}, ?, ?, ?)`,
-      [member.id, userResult.insertId, paymentPeriod, paymentAmount, paymentMethod, paymentStatus, receiptPath, externalReference, adminId]
+         (member_id, user_id, period_month, amount, payment_type, method, method_detail, status, paid_at, receipt_path, external_reference, created_by_admin)
+       VALUES (?, ?, ?, ?, 'INSCRIPCION', ?, ?, ?, ${paidAtSql}, ?, ?, ?)`,
+      [member.id, userResult.insertId, paymentPeriod, paymentAmount, paymentMethod, paymentSummary.detail, paymentStatus, receiptPath, externalReference, adminId]
     );
 
     await connection.commit();
@@ -164,6 +217,7 @@ async function createManualMemberRecord({ pool, body, files, adminId, req }) {
         period_month: paymentPeriod,
         amount: paymentAmount,
         method: paymentMethod,
+        method_detail: paymentSummary.detail,
         status: paymentStatus,
         paid_at: paymentMethod === "EFECTIVO" ? new Date().toISOString() : null,
         receipt_url: receiptPath ? fileUrl(req, receiptPath) : null,

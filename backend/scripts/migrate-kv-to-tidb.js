@@ -200,6 +200,7 @@ async function createSchema(pool) {
     amount DECIMAL(10,2) NOT NULL DEFAULT 20.00,
     payment_type VARCHAR(20) NOT NULL DEFAULT 'MENSUALIDAD',
     method VARCHAR(30) NOT NULL DEFAULT 'MERCADO_PAGO',
+    method_detail TEXT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
     paid_at TIMESTAMP NULL,
     external_reference VARCHAR(120) NULL UNIQUE,
@@ -236,6 +237,11 @@ async function createSchema(pool) {
   await pool.query("ALTER TABLE applications MODIFY COLUMN degree_pdf_path LONGTEXT NULL");
   await pool.query("ALTER TABLE applications MODIFY COLUMN receipt_path LONGTEXT NULL");
   await pool.query("ALTER TABLE payments MODIFY COLUMN receipt_path LONGTEXT NULL");
+  try {
+    await pool.query("ALTER TABLE payments ADD COLUMN method_detail TEXT NULL AFTER method");
+  } catch (error) {
+    if (error.code !== "ER_DUP_FIELDNAME") throw error;
+  }
 }
 
 function sqlDateTime(value) {
@@ -380,10 +386,11 @@ async function main() {
     if (!payment.member_id || !payment.user_id || !payment.period_month) continue;
     await pool.query(
       `INSERT INTO payments
-         (id, member_id, user_id, period_month, amount, payment_type, method, status, paid_at, external_reference,
+         (id, member_id, user_id, period_month, amount, payment_type, method, method_detail, status, paid_at, external_reference,
           mp_preference_id, mp_payment_id, receipt_path, created_by_admin, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE amount = VALUES(amount), payment_type = VALUES(payment_type), method = VALUES(method),
+         method_detail = VALUES(method_detail),
          status = VALUES(status), paid_at = VALUES(paid_at), external_reference = VALUES(external_reference),
          mp_preference_id = VALUES(mp_preference_id), mp_payment_id = VALUES(mp_payment_id), receipt_path = VALUES(receipt_path),
          created_by_admin = VALUES(created_by_admin), updated_at = VALUES(updated_at)`,
@@ -395,6 +402,7 @@ async function main() {
         payment.amount || 20,
         payment.payment_type || "MENSUALIDAD",
         payment.method || "MERCADO_PAGO",
+        payment.method_detail || null,
         payment.status || "PENDIENTE",
         sqlDateTime(payment.paid_at),
         payment.external_reference || null,
