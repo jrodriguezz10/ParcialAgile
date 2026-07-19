@@ -112,6 +112,27 @@ export function AdminDashboard({ token, onLogout }) {
     setAllMembers(data);
   }
 
+  async function refreshMembersPanel() {
+    setMessage("");
+    try {
+      await Promise.all([loadMembers(memberFilter), loadMemberSummary()]);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function refreshSelectedMember(memberId) {
+    const [memberList, payments] = await Promise.all([
+      api("/api/admin/members?status=TODOS", { token }),
+      api(`/api/admin/members/${memberId}/payments`, { token }),
+    ]);
+    setAllMembers(memberList);
+    const refreshed = memberList.find((item) => Number(item.id) === Number(memberId));
+    if (refreshed) setSelectedMember(refreshed);
+    setMemberPayments(payments);
+    return refreshed;
+  }
+
   async function loadAll() {
     setLoading(true);
     setMessage("");
@@ -361,7 +382,14 @@ export function AdminDashboard({ token, onLogout }) {
         token,
         body: { periods, amount: MONTHLY_AMOUNT, payment_methods: methods },
       });
-      await Promise.all([loadMembers(), loadMemberSummary(), openMemberPayments(selectedMember)]);
+      const paidMemberId = selectedMember.id;
+      const refreshedMember = await refreshSelectedMember(paidMemberId);
+      const nextFilter =
+        memberFilter !== "TODOS" && refreshedMember?.status && refreshedMember.status !== memberFilter
+          ? "TODOS"
+          : memberFilter;
+      if (nextFilter !== memberFilter) setMemberFilter(nextFilter);
+      await loadMembers(nextFilter);
       setMessage("Pago manual registrado.");
     } catch (error) {
       setMessage(error.message);
@@ -518,7 +546,7 @@ export function AdminDashboard({ token, onLogout }) {
         activeModule={activeModule} members={members} memberFilter={memberFilter}
         selectedMember={selectedMember} memberPayments={memberPayments} manualPeriod={manualPeriod} paymentCount={paymentCount}
         manualPaymentMethods={manualPaymentMethods}
-        memberCardRef={memberCardRef} onFilterChange={setMemberFilter} onRefresh={loadAll}
+        memberCardRef={memberCardRef} onFilterChange={setMemberFilter} onRefresh={refreshMembersPanel}
         onOpenPayments={openMemberPayments} onManualPeriodChange={setManualPeriod} onPaymentCountChange={updatePaymentCount}
         onManualPaymentMethodsChange={setManualPaymentMethods}
         onRegisterPayment={registerManualPayment} onOpenCard={openMemberPayments}
