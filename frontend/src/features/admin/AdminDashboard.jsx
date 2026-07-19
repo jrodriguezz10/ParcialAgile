@@ -118,7 +118,8 @@ export function AdminDashboard({ token, onLogout }) {
     try {
       const profile = await loadAdminProfile();
       if (profile?.role === "CAJERO") {
-        await Promise.all([loadMembers(), loadMemberSummary()]);
+        setMemberFilter("INHABILITADO");
+        await Promise.all([loadMembers("INHABILITADO"), loadMemberSummary()]);
       } else {
         await Promise.all([loadApplications(), loadApplicationSummary(), loadMembers(), loadMemberSummary(), loadAdminUsers()]);
       }
@@ -138,7 +139,10 @@ export function AdminDashboard({ token, onLogout }) {
   }, [token]);
 
   useEffect(() => {
-    if (adminInfo?.role === "CAJERO") setActiveModule("padron");
+    if (adminInfo?.role === "CAJERO") {
+      setActiveModule("padron");
+      setMemberFilter("INHABILITADO");
+    }
   }, [adminInfo?.role]);
 
   useEffect(() => {
