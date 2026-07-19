@@ -2,7 +2,7 @@ const { getPool } = require("../../config/database");
 const { createManualMemberRecord } = require("../../services/admin-members.service");
 const { refreshAllMemberStatuses, refreshMemberStatus } = require("../../services/members.service");
 const { createExternalReference, createMercadoPagoPreference } = require("../../services/payments.service");
-const { currentPeriod, isValidPeriod, periodFromDate, periodsBetween, previousPeriod } = require("../../utils/dates");
+const { currentPeriod, effectiveEnrollmentPeriod, isValidPeriod, periodsBetween, previousPeriod } = require("../../utils/dates");
 const { fileDataUrl, fileUrl, frontendUrl } = require("../../utils/files");
 const { isValidEmail, normalizeDni } = require("../../utils/text");
 const snapshot = require("../../services/snapshot.service");
@@ -16,7 +16,7 @@ function store() {
 
 function withDebt(member, payments) {
   const paid = new Set((payments || []).filter((item) => item.status === "PAGADO" && item.payment_type === "MENSUALIDAD").map((item) => item.period_month));
-  const start = periodFromDate(member.enrollment_date);
+  const start = effectiveEnrollmentPeriod(member.enrollment_date, payments || []);
   const end = previousPeriod(currentPeriod());
   const pendingPeriods = start && start <= end ? periodsBetween(start, end).filter((period) => !paid.has(period)) : [];
   return { ...member, pending_periods: pendingPeriods, debt_count: pendingPeriods.length, debt_amount: pendingPeriods.length * 20 };

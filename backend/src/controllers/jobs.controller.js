@@ -2,12 +2,12 @@ const env = require("../config/env");
 const { getPool } = require("../config/database");
 const kv = require("../services/kv.service");
 const pgStore = require("../services/postgres-store.service");
-const { currentPeriod, periodFromDate, periodsBetween, previousPeriod } = require("../utils/dates");
+const { currentPeriod, effectiveEnrollmentPeriod, periodsBetween, previousPeriod } = require("../utils/dates");
 const { sendDebtNoticeEmail } = require("../services/mail.service");
 
 function calculateDebt(member, payments) {
   const paid = new Set(payments.filter((item) => item.status === "PAGADO" && item.payment_type === "MENSUALIDAD").map((item) => item.period_month));
-  const start = periodFromDate(member.enrollment_date);
+  const start = effectiveEnrollmentPeriod(member.enrollment_date, payments);
   const end = previousPeriod(currentPeriod());
   const pendingPeriods = start && start <= end ? periodsBetween(start, end).filter((period) => !paid.has(period)) : [];
   return { pendingPeriods, debtAmount: pendingPeriods.length * 20 };

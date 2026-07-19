@@ -1,5 +1,5 @@
 const { getPool } = require("../config/database");
-const { comparePeriods, currentPeriod, isValidPeriod, periodFromDate, previousPeriod } = require("../utils/dates");
+const { comparePeriods, currentPeriod, effectiveEnrollmentPeriod, isValidPeriod, previousPeriod } = require("../utils/dates");
 const {
   approveCheckoutByExternalReference,
   createBatchExternalReference,
@@ -43,10 +43,11 @@ async function getPgUserAndMember(req) {
 
 async function getPgPendingPeriods(member) {
   if (!member) return [];
-  const enrollmentPeriod = periodFromDate(member.enrollment_date);
+  const payments = await store().listMemberPayments(member.id);
+  const enrollmentPeriod = effectiveEnrollmentPeriod(member.enrollment_date, payments);
   const overdueThrough = previousPeriod(currentPeriod());
   if (comparePeriods(enrollmentPeriod, overdueThrough) > 0) return [];
-  const paid = new Set((await store().listMemberPayments(member.id))
+  const paid = new Set(payments
     .filter((payment) => payment.status === "PAGADO" && payment.payment_type === "MENSUALIDAD")
     .map((payment) => payment.period_month));
   return periodRange(enrollmentPeriod, overdueThrough).filter((period) => !paid.has(period));

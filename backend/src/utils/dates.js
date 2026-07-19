@@ -38,6 +38,16 @@ function periodFromDate(value) {
   return isValidPeriod(raw) ? raw : currentPeriod();
 }
 
+function effectiveEnrollmentPeriod(enrollmentDate, payments = []) {
+  const enrollmentPeriod = periodFromDate(enrollmentDate);
+  const firstPaymentPeriod = payments
+    .filter((payment) => payment?.status === "PAGADO" && isValidPeriod(payment.period_month))
+    .map((payment) => payment.period_month)
+    .sort()[0];
+  if (firstPaymentPeriod && firstPaymentPeriod < enrollmentPeriod) return firstPaymentPeriod;
+  return enrollmentPeriod;
+}
+
 function nextPeriod(period) {
   const [year, month] = String(period).split("-").map(Number);
   const date = new Date(Date.UTC(year, month, 1));
@@ -71,6 +81,7 @@ module.exports = {
   isValidPeriod,
   comparePeriods,
   periodFromDate,
+  effectiveEnrollmentPeriod,
   previousPeriod,
   periodsBetween,
 };

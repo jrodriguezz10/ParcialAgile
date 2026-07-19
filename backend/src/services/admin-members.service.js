@@ -87,11 +87,12 @@ function paymentMethodSummary(methods, expectedTotal, fallbackMethod) {
   };
 }
 
-function parseEnrollmentDate(value) {
+function parseEnrollmentDate(value, paymentPeriod) {
   const raw = String(value || "").trim();
-  if (!raw) return todayDate();
+  const periodStart = isValidPeriod(paymentPeriod) ? `${paymentPeriod}-01` : todayDate();
+  if (!raw) return periodStart;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw validationError("Fecha de inscripcion invalida.");
-  return raw;
+  return raw.slice(0, 7) > paymentPeriod ? periodStart : raw;
 }
 
 async function getRequiredDniIdentity(dni) {
@@ -120,7 +121,7 @@ async function createManualMemberRecord({ pool, body, files, adminId, adminBranc
   const degreePdfPath = (storeFilesInDatabase ? fileDataUrl(files?.degreePdf?.[0]) : storedPath(files?.degreePdf?.[0])) || null;
   const receiptPath = (storeFilesInDatabase ? fileDataUrl(files?.receipt?.[0]) : storedPath(files?.receipt?.[0])) || null;
   const paymentPeriod = isValidPeriod(body.payment_period_month) ? body.payment_period_month : currentPeriod();
-  const enrollmentDate = parseEnrollmentDate(body.enrollment_date);
+  const enrollmentDate = parseEnrollmentDate(body.enrollment_date, paymentPeriod);
   const paymentAmount = 20;
   const paymentSummary = paymentMethodSummary(body.payment_methods, paymentAmount, body.payment_method);
   const paymentMethod = paymentSummary.method;

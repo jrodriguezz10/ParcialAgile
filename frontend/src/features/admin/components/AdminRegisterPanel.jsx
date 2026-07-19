@@ -125,7 +125,16 @@ export function AdminRegisterPanel({
               <input
                 type="month"
                 value={registrationPayment.period_month}
-                onChange={(event) => onRegistrationPaymentChange((current) => ({ ...current, period_month: event.target.value }))}
+                onChange={(event) => {
+                  const period = event.target.value;
+                  onRegistrationPaymentChange((current) => ({ ...current, period_month: period }));
+                  onManualMemberChange((current) => {
+                    const periodStart = `${period}-01`;
+                    return !current.enrollment_date || current.enrollment_date.slice(0, 7) > period
+                      ? { ...current, enrollment_date: periodStart }
+                      : current;
+                  });
+                }}
                 required
               />
             </label>

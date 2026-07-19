@@ -1,19 +1,19 @@
 const crypto = require("crypto");
 const { getPool } = require("../config/database");
-const { currentPeriod, periodFromDate, previousPeriod, periodsBetween, todayDate } = require("../utils/dates");
+const { currentPeriod, effectiveEnrollmentPeriod, previousPeriod, periodsBetween, todayDate } = require("../utils/dates");
 const { frontendUrl } = require("../utils/files");
 const { applicationPresenter } = require("../utils/presenters");
 
 // Calcula mensualidades esperadas menos pagos registrados.
 async function getPendingMonthlyPeriods(pool, memberId, enrollmentDate) {
-  const expectedPeriods = periodsBetween(periodFromDate(enrollmentDate), previousPeriod(currentPeriod()));
-  if (!expectedPeriods.length) return [];
-
   const [paidRows] = await pool.query(
-    "SELECT period_month FROM payments WHERE member_id = ? AND status = 'PAGADO' AND payment_type = 'MENSUALIDAD'",
+    "SELECT period_month, payment_type, status FROM payments WHERE member_id = ? AND status = 'PAGADO'",
     [memberId]
   );
-  const paidPeriods = new Set(paidRows.map((row) => row.period_month));
+  const expectedPeriods = periodsBetween(effectiveEnrollmentPeriod(enrollmentDate, paidRows), previousPeriod(currentPeriod()));
+  if (!expectedPeriods.length) return [];
+
+  const paidPeriods = new Set(paidRows.filter((row) => row.payment_type === "MENSUALIDAD").map((row) => row.period_month));
   return expectedPeriods.filter((period) => !paidPeriods.has(period));
 }
 
