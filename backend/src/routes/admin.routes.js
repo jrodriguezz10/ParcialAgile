@@ -9,10 +9,10 @@ const router = express.Router();
 
 // Cuenta administrador.
 router.get("/admin/me", auth("admin"), asyncHandler(controller.getMe));
-router.put("/admin/profile", auth("admin"), asyncHandler(controller.updateProfile));
+router.put("/admin/profile", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.updateProfile));
 router.get("/admin/admins", auth("admin"), adminRole("ADMIN_SEDE"), asyncHandler(controller.listAdmins));
 router.post("/admin/admins", auth("admin"), adminRole("ADMIN_SEDE"), asyncHandler(controller.createAdmin));
-router.get("/admin/users", auth("admin"), asyncHandler(controller.listUsers));
+router.get("/admin/users", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.listUsers));
 
 // Registro directo de colegiados.
 router.post(

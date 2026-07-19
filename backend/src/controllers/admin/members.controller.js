@@ -22,6 +22,19 @@ function withDebt(member, payments) {
   return { ...member, pending_periods: pendingPeriods, debt_count: pendingPeriods.length, debt_amount: pendingPeriods.length * 20 };
 }
 
+function canAccessBranch(req, branch) {
+  const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
+  return adminBranch === "Consejo Nacional - Lima" || (branch || "Consejo Nacional - Lima") === adminBranch;
+}
+
+function assertBranchAccess(req, member) {
+  if (!canAccessBranch(req, member?.branch)) {
+    const error = new Error("Colegiado no encontrado en tu sede.");
+    error.statusCode = 404;
+    throw error;
+  }
+}
+
 // Padron: alta manual, estado de colegiados y pagos registrados por admin.
 async function createManualMember(req, res) {
   if (req.dbReady === false && kv.enabled()) {
@@ -35,6 +48,7 @@ async function createManualMember(req, res) {
     body: req.body,
     files: req.files,
     adminId: req.auth.sub,
+    adminBranch: req.admin?.branch,
     req,
   });
   res.status(201).json(created);
@@ -265,7 +279,7 @@ async function listMembers(req, res) {
      ORDER BY m.created_at DESC`,
     params
   );
-  const scopedRows = rows.filter((row) => req.admin?.branch === "Consejo Nacional - Lima" || (row.branch || "Consejo Nacional - Lima") === req.admin?.branch);
+  const scopedRows = rows.filter((row) => canAccessBranch(req, row.branch));
   const decorated = await Promise.all(scopedRows.map(async (row) => {
     const [payments] = await pool.query("SELECT period_month, payment_type, status FROM payments WHERE member_id = ?", [row.id]);
     return withDebt(row, payments);
@@ -285,9 +299,27 @@ async function updateMemberStatus(req, res) {
 
 async function listMemberPayments(req, res) {
   if (req.dbReady === false && snapshot.available()) {
-    if (kv.enabled() || pgStore.enabled()) return res.json(await store().listMemberPayments(req.params.id));
+    if (kv.enabled() || pgStore.enabled()) {
+      const member = (await store().listMembers("TODOS")).find((item) => Number(item.id) === Number(req.params.id));
+      if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });
+      assertBranchAccess(req, member);
+      return res.json(await store().listMemberPayments(req.params.id));
+    }
+    const member = snapshot.listMembers("TODOS").find((item) => Number(item.id) === Number(req.params.id));
+    if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });
+    assertBranchAccess(req, member);
     return res.json(snapshot.listMemberPayments(req.params.id));
   }
+
+  const [[member]] = await getPool().query(
+    `SELECT m.id, u.branch
+     FROM members m
+     JOIN users u ON u.id = m.user_id
+     WHERE m.id = ?`,
+    [req.params.id]
+  );
+  if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });
+  assertBranchAccess(req, member);
 
   const [payments] = await getPool().query(
     "SELECT * FROM payments WHERE member_id = ? ORDER BY period_month DESC, created_at DESC",
@@ -308,6 +340,9 @@ async function createMemberPayment(req, res) {
   if (amount <= 0) return res.status(422).json({ message: "Monto invalido." });
 
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
+    const member = (await store().listMembers("TODOS")).find((item) => Number(item.id) === Number(req.params.id));
+    if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });
+    assertBranchAccess(req, member);
     let created;
     for (const item of periods) {
       created = await store().createMemberPayment(req.params.id, item, amount, req.auth.sub, perPeriodPaymentSummary.method, {
@@ -320,8 +355,15 @@ async function createMemberPayment(req, res) {
 
   const pool = getPool();
 
-  const [[member]] = await pool.query("SELECT * FROM members WHERE id = ?", [req.params.id]);
+  const [[member]] = await pool.query(
+    `SELECT m.*, u.branch
+     FROM members m
+     JOIN users u ON u.id = m.user_id
+     WHERE m.id = ?`,
+    [req.params.id]
+  );
   if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });
+  assertBranchAccess(req, member);
 
   for (const item of periods) await pool.query(
     `INSERT INTO payments
@@ -346,12 +388,14 @@ async function notifyMemberEmail(req, res) {
   let payments;
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     member = (await store().listMembers("TODOS")).find((item) => Number(item.id) === Number(req.params.id));
+    if (member) assertBranchAccess(req, member);
     payments = member ? await store().listMemberPayments(member.id) : [];
   } else {
     [[member]] = await getPool().query(
-      `SELECT m.*, u.full_name, u.email FROM members m JOIN users u ON u.id = m.user_id WHERE m.id = ?`,
+      `SELECT m.*, u.full_name, u.email, u.branch FROM members m JOIN users u ON u.id = m.user_id WHERE m.id = ?`,
       [req.params.id]
     );
+    if (member) assertBranchAccess(req, member);
     if (member) [payments] = await getPool().query("SELECT * FROM payments WHERE member_id = ?", [member.id]);
   }
   if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });

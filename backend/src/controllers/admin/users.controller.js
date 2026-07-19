@@ -7,7 +7,9 @@ const pgStore = require("../../services/postgres-store.service");
 async function listUsers(req, res) {
   if (req.dbReady === false && snapshot.available()) {
     const query = String(req.query.q || "");
-    if (kv.enabled() || pgStore.enabled()) return res.json(await (kv.enabled() ? kv : pgStore).listUsers(query));
+    const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
+    const inBranch = (user) => adminBranch === "Consejo Nacional - Lima" || (user.branch || "Consejo Nacional - Lima") === adminBranch;
+    if (kv.enabled() || pgStore.enabled()) return res.json((await (kv.enabled() ? kv : pgStore).listUsers(query)).filter(inBranch));
     const snapshotUsers = snapshot.listUsers(query);
     const kvUsers = kv.enabled() ? await kv.listKvUsers(query) : [];
     const kvApplications = kv.enabled() ? await kv.listKvApplications("TODOS") : [];
@@ -24,19 +26,26 @@ async function listUsers(req, res) {
         enrollment_date: null,
       };
     });
-    return res.json([...enrichedKvUsers, ...snapshotUsers]);
+    return res.json([...enrichedKvUsers, ...snapshotUsers].filter(inBranch));
   }
 
   const pool = getPool();
   const search = String(req.query.q || "").trim();
   const params = [];
-  let where = "";
+  const clauses = [];
+  const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
+
+  if (adminBranch !== "Consejo Nacional - Lima") {
+    clauses.push("u.branch = ?");
+    params.push(adminBranch);
+  }
 
   if (search) {
     const term = `%${search.toLowerCase()}%`;
-    where = `WHERE LOWER(CONCAT_WS(' ', u.id, u.dni, u.full_name, u.email, u.phone, u.profession, m.membership_number)) LIKE ?`;
+    clauses.push(`LOWER(CONCAT_WS(' ', u.id, u.dni, u.full_name, u.email, u.phone, u.profession, m.membership_number)) LIKE ?`);
     params.push(term);
   }
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
   const [rows] = await pool.query(
     `SELECT
@@ -50,6 +59,7 @@ async function listUsers(req, res) {
        u.phone,
        u.address,
        u.profession,
+       u.branch,
        u.created_at,
        u.updated_at,
        a.id AS application_id,

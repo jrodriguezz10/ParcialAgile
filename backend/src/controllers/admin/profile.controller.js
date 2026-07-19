@@ -8,6 +8,15 @@ function dataStore() {
   return kv.enabled() ? kv : pgStore;
 }
 
+function scopedBranch(req, requestedBranch) {
+  const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
+  return adminBranch === "Consejo Nacional - Lima" ? requestedBranch : adminBranch;
+}
+
+function scopedRole(req, requestedRole) {
+  return req.admin?.role === "CAJERO" ? "CAJERO" : requestedRole;
+}
+
 // Perfil administrador: cuenta actual y gestion de otros accesos admin.
 async function getMe(req, res) {
   if (req.dbReady === false && snapshot.available()) {
@@ -32,8 +41,10 @@ async function updateProfile(req, res) {
   const dni = String(req.body.dni || "").replace(/\D/g, "").slice(0, 8);
   const email = String(req.body.email || "").trim().toLowerCase();
   const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
-  const role = String(req.body.role || "Administrador").trim();
-  const branch = String(req.body.branch || "Consejo Nacional - Lima").trim();
+  const requestedRole = String(req.body.role || "Administrador").trim();
+  const requestedBranch = String(req.body.branch || "Consejo Nacional - Lima").trim();
+  const role = scopedRole(req, requestedRole);
+  const branch = scopedBranch(req, requestedBranch);
   const password = String(req.body.password || "");
 
   if (!name || dni.length !== 8 || !email || phone.length !== 9 || !role) {
@@ -84,13 +95,14 @@ async function updateProfile(req, res) {
 }
 
 async function listAdmins(req, res) {
-  if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) return res.json(await (kv.enabled() ? kv : pgStore).listAdmins());
-  if (req.dbReady === false && snapshot.available()) return res.json(snapshot.listAdmins());
+  const visibleToAdmin = (admin) => scopedBranch(req, admin.branch || "Consejo Nacional - Lima") === (admin.branch || "Consejo Nacional - Lima");
+  if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) return res.json((await (kv.enabled() ? kv : pgStore).listAdmins()).filter(visibleToAdmin));
+  if (req.dbReady === false && snapshot.available()) return res.json(snapshot.listAdmins().filter(visibleToAdmin));
 
   const [rows] = await getPool().query(
     "SELECT id, name, dni, email, phone, role, branch, created_at, updated_at FROM admins ORDER BY created_at DESC"
   );
-  res.json(rows);
+  res.json(rows.filter(visibleToAdmin));
 }
 
 async function createAdmin(req, res) {
@@ -99,7 +111,7 @@ async function createAdmin(req, res) {
   const email = String(req.body.email || "").trim().toLowerCase();
   const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
   const role = String(req.body.role || "Administrador").trim();
-  const branch = String(req.body.branch || "Consejo Nacional - Lima").trim();
+  const branch = scopedBranch(req, String(req.body.branch || "Consejo Nacional - Lima").trim());
   const password = String(req.body.password || "");
 
   if (!name || dni.length !== 8 || !email || phone.length !== 9 || !role || !password) {

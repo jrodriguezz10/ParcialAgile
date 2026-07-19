@@ -76,13 +76,14 @@ async function getRequiredDniIdentity(dni) {
   }
 }
 
-async function createManualMemberRecord({ pool, body, files, adminId, req }) {
+async function createManualMemberRecord({ pool, body, files, adminId, adminBranch, req }) {
   const dni = normalizeDni(body.dni);
   const email = String(body.email || "").trim().toLowerCase();
   const phone = String(body.phone || "").trim();
   const address = String(body.address || "").trim();
   const profession = String(body.profession || "").trim();
-  const branch = String(body.branch || "Consejo Nacional - Lima").trim();
+  const requestedBranch = String(body.branch || "Consejo Nacional - Lima").trim();
+  const branch = adminBranch && adminBranch !== "Consejo Nacional - Lima" ? adminBranch : requestedBranch;
   const password = String(body.password || dni || "123456");
   const storeFilesInDatabase = shouldStoreUploadsInDatabase();
   const photoPath = (storeFilesInDatabase ? fileDataUrl(files?.photo?.[0]) : storedPath(files?.photo?.[0])) || null;

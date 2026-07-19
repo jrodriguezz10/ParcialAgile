@@ -49,6 +49,7 @@ async function getApplication(req, res) {
     if (kv.enabled() || pgStore.enabled()) {
       const row = await store().getApplication(req.params.id);
       if (!row) return res.status(404).json({ message: "Solicitud no encontrada." });
+      if (!inAdminBranch(req, row)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
       return res.json(applicationPresenter(req, row));
     }
     const kvRows = kv.enabled() ? await kv.listKvApplications("TODOS") : [];
@@ -72,6 +73,9 @@ async function importApplicationFiles(req, res) {
   if (req.dbReady !== false || !kv.enabled()) {
     return res.status(409).json({ message: "Importacion disponible solo para almacenamiento cloud KV." });
   }
+  const application = await kv.getApplication(req.params.id);
+  if (!application) return res.status(404).json({ message: "Solicitud no encontrada." });
+  if (!inAdminBranch(req, application)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
   const files = {
     photo: fileDataUrl(req.files?.photo?.[0]),
     degreePdf: fileDataUrl(req.files?.degreePdf?.[0]),
@@ -86,6 +90,7 @@ async function approveApplication(req, res) {
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     const application = await store().getApplication(req.params.id);
     if (!application) return res.status(404).json({ message: "Solicitud no encontrada." });
+    if (!inAdminBranch(req, application)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
     if (!application.photo_path || !application.degree_pdf_path || !application.receipt_path) {
       return res.status(422).json({ message: "La solicitud no tiene todos los documentos." });
     }
@@ -98,7 +103,7 @@ async function approveApplication(req, res) {
   try {
     await connection.beginTransaction();
     const [[application]] = await connection.query(
-      `SELECT a.*, u.id AS user_id, u.full_name, u.dni
+      `SELECT a.*, u.id AS user_id, u.full_name, u.dni, u.branch
        FROM applications a
        JOIN users u ON u.id = a.user_id
        WHERE a.id = ?
@@ -108,6 +113,10 @@ async function approveApplication(req, res) {
     if (!application) {
       await connection.rollback();
       return res.status(404).json({ message: "Solicitud no encontrada." });
+    }
+    if (!inAdminBranch(req, application)) {
+      await connection.rollback();
+      return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
     }
     if (!application.photo_path || !application.degree_pdf_path || !application.receipt_path) {
       await connection.rollback();
@@ -152,6 +161,7 @@ async function observeApplication(req, res) {
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     const application = await store().getApplication(req.params.id);
     if (!application) return res.status(404).json({ message: "Solicitud no encontrada." });
+    if (!inAdminBranch(req, application)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
     if (application.status === "APROBADO") {
       return res.status(409).json({ message: "Una solicitud aprobada ya tiene carnet generado y no puede observarse." });
     }
@@ -159,8 +169,16 @@ async function observeApplication(req, res) {
     if (!row) return res.status(404).json({ message: "Solicitud no encontrada." });
     return res.json({ message: "Solicitud observada." });
   }
-  const [[application]] = await getPool().query("SELECT status FROM applications WHERE id = ? LIMIT 1", [req.params.id]);
+  const [[application]] = await getPool().query(
+    `SELECT a.status, u.branch
+     FROM applications a
+     JOIN users u ON u.id = a.user_id
+     WHERE a.id = ?
+     LIMIT 1`,
+    [req.params.id]
+  );
   if (!application) return res.status(404).json({ message: "Solicitud no encontrada." });
+  if (!inAdminBranch(req, application)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
   if (application.status === "APROBADO") {
     return res.status(409).json({ message: "Una solicitud aprobada ya tiene carnet generado y no puede observarse." });
   }
@@ -179,6 +197,7 @@ async function rejectApplication(req, res) {
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     const application = await store().getApplication(req.params.id);
     if (!application) return res.status(404).json({ message: "Solicitud no encontrada." });
+    if (!inAdminBranch(req, application)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
     if (application.status === "APROBADO") {
       return res.status(409).json({ message: "Una solicitud aprobada ya tiene carnet generado y no puede rechazarse." });
     }
@@ -191,8 +210,16 @@ async function rejectApplication(req, res) {
     if (!row) return res.status(404).json({ message: "Solicitud no encontrada." });
     return res.json({ message: "Solicitud rechazada." });
   }
-  const [[application]] = await getPool().query("SELECT status FROM applications WHERE id = ? LIMIT 1", [req.params.id]);
+  const [[application]] = await getPool().query(
+    `SELECT a.status, u.branch
+     FROM applications a
+     JOIN users u ON u.id = a.user_id
+     WHERE a.id = ?
+     LIMIT 1`,
+    [req.params.id]
+  );
   if (!application) return res.status(404).json({ message: "Solicitud no encontrada." });
+  if (!inAdminBranch(req, application)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
   if (application.status === "APROBADO") {
     return res.status(409).json({ message: "Una solicitud aprobada ya tiene carnet generado y no puede rechazarse." });
   }
