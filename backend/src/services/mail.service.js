@@ -96,7 +96,38 @@ async function sendDebtNoticeEmail({ email, fullName, debtAmount, pendingPeriods
   return { sent: true, mode: "smtp", to: email };
 }
 
+async function sendPasswordResetCodeEmail({ email, fullName, code }) {
+  const subject = "Codigo para restablecer clave - CIP";
+  const body = [
+    `Hola ${fullName || "administrador"}.`,
+    "",
+    `Tu codigo para cambiar la clave del panel CIP es: ${code}`,
+    "El codigo vence en 15 minutos.",
+    "",
+    "Si no solicitaste este cambio, ignora este mensaje.",
+    "Colegio de Ingenieros del Peru",
+  ].join("\n");
+
+  const transporter = requireTransporter();
+  try {
+    await transporter.sendMail({
+      from: cipFromAddress(),
+      to: email,
+      subject,
+      text: body,
+    });
+  } catch (error) {
+    console.error("Error SMTP al enviar codigo de recuperacion:", error.message);
+    const mailError = new Error("No se pudo enviar el codigo al correo. Revisa la configuracion SMTP.");
+    mailError.statusCode = 502;
+    throw mailError;
+  }
+
+  return { sent: true, mode: "smtp", to: email };
+}
+
 module.exports = {
   sendRegistrationCodeEmail,
   sendDebtNoticeEmail,
+  sendPasswordResetCodeEmail,
 };

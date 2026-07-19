@@ -211,6 +211,20 @@ async function updateAdmin(id, admin) {
   return safe;
 }
 
+async function updateAdminPassword(id, passwordHash) {
+  const admins = await getCollection("admins");
+  const index = admins.findIndex((item) => Number(item.id) === Number(id));
+  if (index === -1) return null;
+  admins[index] = {
+    ...admins[index],
+    password_hash: passwordHash,
+    updated_at: new Date().toISOString().slice(0, 19).replace("T", " "),
+  };
+  await setCollection("admins", admins);
+  const { password_hash, ...safe } = admins[index];
+  return safe;
+}
+
 async function listUsers(query = "") {
   const users = (await getCollection("users")).map(cleanUserPlaceholders);
   const normalized = String(query || "").trim().toLowerCase();
@@ -600,6 +614,7 @@ module.exports = {
   listAdmins,
   createAdmin,
   updateAdmin,
+  updateAdminPassword,
   listUsers,
   listApplications,
   getApplication,

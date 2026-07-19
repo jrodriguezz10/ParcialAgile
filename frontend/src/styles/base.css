@@ -284,6 +284,21 @@ input:disabled {
   text-decoration: none;
 }
 
+.link-button {
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: var(--red-800);
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-button:hover,
+.text-link:hover {
+  text-decoration: underline;
+}
+
 .text-button {
   width: fit-content;
   border: 0;

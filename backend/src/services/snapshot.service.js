@@ -24,6 +24,14 @@ function findAdminByEmail(email) {
   return (snapshot?.admins || []).find((admin) => admin.email === email) || null;
 }
 
+function updateAdminPassword(adminId, passwordHash) {
+  const admin = (snapshot?.admins || []).find((item) => Number(item.id) === Number(adminId));
+  if (!admin) return null;
+  admin.password_hash = passwordHash;
+  admin.updated_at = new Date().toISOString().slice(0, 19).replace("T", " ");
+  return publicAdmin(admin);
+}
+
 function getAdmin(id) {
   return publicAdmin((snapshot?.admins || []).find((admin) => Number(admin.id) === Number(id)));
 }
@@ -125,6 +133,7 @@ function listMemberPayments(memberId) {
 module.exports = {
   available,
   findAdminByEmail,
+  updateAdminPassword,
   getAdmin,
   listAdmins,
   listApplications,
