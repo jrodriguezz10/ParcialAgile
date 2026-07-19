@@ -94,17 +94,40 @@ function paymentMethodSummary(methods, expectedTotal, options = {}) {
   }
 
   const total = normalized.reduce((sum, item) => sum + item.amount, 0);
-  if (Math.abs(total - expectedTotal) > 0.01) {
-    throw validationError(`Los medios de pago deben sumar S/ ${expectedTotal.toFixed(2)}.`);
+  const missing = expectedTotal - total;
+  if (missing > 0.01) {
+    throw validationError(`Falta registrar S/ ${missing.toFixed(2)}.`);
+  }
+  const change = total - expectedTotal;
+  if (change > 0.01 && !normalized.some((item) => item.method === "EFECTIVO")) {
+    throw validationError("El vuelto solo puede calcularse cuando hay pago en efectivo.");
   }
 
+  const applied = normalized.map((item) => ({ ...item, receivedAmount: item.amount }));
+  let remainingChange = Math.max(0, change);
+  for (let index = applied.length - 1; index >= 0 && remainingChange > 0.01; index -= 1) {
+    if (applied[index].method !== "EFECTIVO") continue;
+    const discount = Math.min(applied[index].amount, remainingChange);
+    applied[index].amount -= discount;
+    remainingChange -= discount;
+  }
+  if (remainingChange > 0.01) throw validationError("El vuelto supera el monto recibido en efectivo.");
+
+  const charged = applied.filter((item) => item.amount > 0.01 || item.receivedAmount > item.amount + 0.01);
+
   return {
-    method: normalized.length > 1 ? "MIXTO" : normalized[0].method,
-    detail: normalized.map((item) => `${PAYMENT_METHOD_LABELS[item.method]} S/ ${item.amount.toFixed(2)}`).join(" + "),
+    method: charged.length > 1 ? "MIXTO" : charged[0].method,
+    detail: charged.map((item) => {
+      const label = PAYMENT_METHOD_LABELS[item.method];
+      if (item.method === "EFECTIVO" && item.receivedAmount > item.amount + 0.01) {
+        return `${label} S/ ${item.amount.toFixed(2)} (recibido S/ ${item.receivedAmount.toFixed(2)}, vuelto S/ ${(item.receivedAmount - item.amount).toFixed(2)})`;
+      }
+      return `${label} S/ ${item.amount.toFixed(2)}`;
+    }).join(" + "),
   };
 }
 
-function proratedPaymentMethodSummary(methods, divisor, fallback) {
+function proratedPaymentMethodSummary(methods, divisor, expectedTotal, fallback) {
   if (divisor <= 1) return fallback;
   let source = Array.isArray(methods) ? methods : [];
   if (!source.length && methods) {
@@ -122,6 +145,8 @@ function proratedPaymentMethodSummary(methods, divisor, fallback) {
     }))
     .filter((item) => item.method && item.amount > 0);
   if (!normalized.length) return fallback;
+  const total = normalized.reduce((sum, item) => sum + item.amount, 0);
+  if (total > expectedTotal + 0.01) return fallback;
   return {
     method: normalized.length > 1 ? "MIXTO" : normalized[0].method,
     detail: normalized.map((item) => `${PAYMENT_METHOD_LABELS[item.method]} S/ ${item.amount.toFixed(2)}`).join(" + "),
@@ -335,7 +360,7 @@ async function createMemberPayment(req, res) {
   const amount = Number(req.body.amount || 20);
   const paymentTotal = periods.length * amount;
   const paymentSummary = paymentMethodSummary(req.body.payment_methods, paymentTotal);
-  const perPeriodPaymentSummary = proratedPaymentMethodSummary(req.body.payment_methods, periods.length, paymentSummary);
+  const perPeriodPaymentSummary = proratedPaymentMethodSummary(req.body.payment_methods, periods.length, paymentTotal, paymentSummary);
   if (!periods.length || periods.some((item) => !isValidPeriod(item))) return res.status(422).json({ message: "Periodo invalido. Usa YYYY-MM." });
   if (amount <= 0) return res.status(422).json({ message: "Monto invalido." });
 

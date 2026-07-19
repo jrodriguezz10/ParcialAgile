@@ -38,7 +38,7 @@ export function AdminMembersPanel({
   }, [members, normalizedSearch]);
   const expectedTotal = paymentCount * 20;
   const paymentTotal = (manualPaymentMethods || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const paymentTotalMatches = Math.abs(paymentTotal - expectedTotal) <= 0.01;
+  const paymentStatus = getPaymentStatus(manualPaymentMethods, expectedTotal);
 
   return (
     <section className={`panel ${activeModule === "padron" ? "" : "module-hidden"}`} id="admin-padron">
@@ -134,10 +134,13 @@ export function AdminMembersPanel({
                     expectedTotal={expectedTotal}
                     onChange={onManualPaymentMethodsChange}
                   />
-                  <small className={paymentTotalMatches ? "payment-total ok" : "payment-total warning"}>
-                    Total medios S/ {paymentTotal.toFixed(2)} de S/ {expectedTotal.toFixed(2)}
+                  <small className={paymentStatus.canSubmit ? "payment-total ok" : "payment-total warning"}>
+                    Total recibido S/ {paymentTotal.toFixed(2)} de S/ {expectedTotal.toFixed(2)}
+                    {paymentStatus.missing > 0.01 && ` - Falta S/ ${paymentStatus.missing.toFixed(2)}`}
+                    {paymentStatus.change > 0.01 && ` - Vuelto S/ ${paymentStatus.change.toFixed(2)}`}
+                    {paymentStatus.invalidChange && " - El vuelto solo aplica con efectivo"}
                   </small>
-                  <Button icon={ReceiptText} disabled={!paymentTotalMatches}>Cobrar {paymentCount} mensualidad{paymentCount > 1 ? "es" : ""}</Button>
+                  <Button icon={ReceiptText} disabled={!paymentStatus.canSubmit}>Cobrar {paymentCount} mensualidad{paymentCount > 1 ? "es" : ""}</Button>
                 </form>
               </div>
               <DataTable
@@ -177,6 +180,21 @@ const PAYMENT_METHODS = [
   { value: "TARJETA", label: "Tarjeta" },
   { value: "TRANSFERENCIA", label: "Transferencia" },
 ];
+
+function getPaymentStatus(methods = [], expectedTotal) {
+  const total = methods.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const missing = Math.max(0, expectedTotal - total);
+  const change = Math.max(0, total - expectedTotal);
+  const hasCash = methods.some((item) => item.method === "EFECTIVO" && Number(item.amount || 0) > 0);
+  const invalidChange = change > 0.01 && !hasCash;
+  return {
+    total,
+    missing,
+    change,
+    invalidChange,
+    canSubmit: missing <= 0.01 && !invalidChange,
+  };
+}
 
 function PaymentMethodsEditor({ methods = [], expectedTotal, onChange }) {
   const rows = methods.length ? methods : [{ method: "EFECTIVO", amount: expectedTotal }];

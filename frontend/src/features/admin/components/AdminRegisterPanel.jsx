@@ -21,7 +21,8 @@ export function AdminRegisterPanel({
   onlyDniDigits,
 }) {
   const registrationPaymentTotal = (registrationPayment.methods || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const registrationPaymentMatches = registrationPayment.method === "MERCADO_PAGO" || Math.abs(registrationPaymentTotal - 20) <= 0.01;
+  const registrationPaymentStatus = getPaymentStatus(registrationPayment.methods, 20);
+  const registrationPaymentMatches = registrationPayment.method === "MERCADO_PAGO" || registrationPaymentStatus.canSubmit;
 
   return (
     <section className={`panel ${activeModule === "registro" ? "" : "module-hidden"}`} id="admin-registro">
@@ -157,8 +158,11 @@ export function AdminRegisterPanel({
                     methods,
                   }))}
                 />
-                <small className={registrationPaymentMatches ? "payment-total ok" : "payment-total warning"}>
-                  Total a registrar S/ {Number(registrationPaymentTotal).toFixed(2)} de S/ 20.00
+                <small className={registrationPaymentStatus.canSubmit ? "payment-total ok" : "payment-total warning"}>
+                  Total recibido S/ {Number(registrationPaymentTotal).toFixed(2)} de S/ 20.00
+                  {registrationPaymentStatus.missing > 0.01 && ` - Falta S/ ${registrationPaymentStatus.missing.toFixed(2)}`}
+                  {registrationPaymentStatus.change > 0.01 && ` - Vuelto S/ ${registrationPaymentStatus.change.toFixed(2)}`}
+                  {registrationPaymentStatus.invalidChange && " - El vuelto solo aplica con efectivo"}
                 </small>
               </div>
             )}
@@ -219,6 +223,21 @@ const PAYMENT_METHODS = [
   { value: "TARJETA", label: "Tarjeta" },
   { value: "TRANSFERENCIA", label: "Transferencia" },
 ];
+
+function getPaymentStatus(methods = [], expectedTotal) {
+  const total = methods.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const missing = Math.max(0, expectedTotal - total);
+  const change = Math.max(0, total - expectedTotal);
+  const hasCash = methods.some((item) => item.method === "EFECTIVO" && Number(item.amount || 0) > 0);
+  const invalidChange = change > 0.01 && !hasCash;
+  return {
+    total,
+    missing,
+    change,
+    invalidChange,
+    canSubmit: missing <= 0.01 && !invalidChange,
+  };
+}
 
 function PaymentMethodsEditor({ methods = [], expectedTotal, onChange }) {
   const rows = methods.length ? methods : [{ method: "EFECTIVO", amount: expectedTotal }];
