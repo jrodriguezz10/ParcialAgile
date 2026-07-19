@@ -47,6 +47,7 @@ function listUsers(query = "") {
         membership_number: member?.membership_number || null,
         member_status: member?.status || null,
         enrollment_date: member?.enrollment_date || null,
+        branch: user.branch || "Consejo Nacional - Lima",
       };
     })
     .filter((user) => {
@@ -79,6 +80,7 @@ function listApplications(status = "") {
         phone: user.phone,
         address: user.address,
         profession: user.profession,
+        branch: user.branch || "Consejo Nacional - Lima",
       };
     });
 }
@@ -106,6 +108,7 @@ function listMembers(status = "") {
         email: user.email,
         phone: user.phone,
         profession: user.profession,
+        branch: user.branch || "Consejo Nacional - Lima",
         photo_path: application.photo_path,
         last_paid_period: paid.reduce((latest, payment) => payment.period_month > latest ? payment.period_month : latest, ""),
         last_paid_at: paid.reduce((latest, payment) => payment.paid_at > latest ? payment.paid_at : latest, ""),
