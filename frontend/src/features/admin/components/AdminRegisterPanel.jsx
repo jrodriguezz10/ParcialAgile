@@ -130,6 +130,15 @@ export function AdminRegisterPanel({
               />
             </label>
             <label>
+              Fecha de inscripcion
+              <input
+                type="date"
+                value={manualMember.enrollment_date}
+                onChange={(event) => onManualMemberChange((current) => ({ ...current, enrollment_date: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
               Método de pago
               <select
                 value={registrationPayment.method}

@@ -1,5 +1,5 @@
 const bcrypt = require("bcryptjs");
-const { currentPeriod, isValidPeriod } = require("../utils/dates");
+const { currentPeriod, isValidPeriod, todayDate } = require("../utils/dates");
 const { fileDataUrl, fileUrl, frontendUrl, shouldStoreUploadsInDatabase, storedPath } = require("../utils/files");
 const { isValidEmail, normalizeDni } = require("../utils/text");
 const { createMemberForApprovedApplication, refreshMemberStatus } = require("./members.service");
@@ -87,6 +87,13 @@ function paymentMethodSummary(methods, expectedTotal, fallbackMethod) {
   };
 }
 
+function parseEnrollmentDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return todayDate();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw validationError("Fecha de inscripcion invalida.");
+  return raw;
+}
+
 async function getRequiredDniIdentity(dni) {
   try {
     return await consultDniApi(dni);
@@ -113,6 +120,7 @@ async function createManualMemberRecord({ pool, body, files, adminId, adminBranc
   const degreePdfPath = (storeFilesInDatabase ? fileDataUrl(files?.degreePdf?.[0]) : storedPath(files?.degreePdf?.[0])) || null;
   const receiptPath = (storeFilesInDatabase ? fileDataUrl(files?.receipt?.[0]) : storedPath(files?.receipt?.[0])) || null;
   const paymentPeriod = isValidPeriod(body.payment_period_month) ? body.payment_period_month : currentPeriod();
+  const enrollmentDate = parseEnrollmentDate(body.enrollment_date);
   const paymentAmount = 20;
   const paymentSummary = paymentMethodSummary(body.payment_methods, paymentAmount, body.payment_method);
   const paymentMethod = paymentSummary.method;
@@ -177,7 +185,7 @@ async function createManualMemberRecord({ pool, body, files, adminId, adminBranc
       id: applicationResult.insertId,
       user_id: userResult.insertId,
     };
-    const member = await createMemberForApprovedApplication(connection, application);
+    const member = await createMemberForApprovedApplication(connection, application, { enrollmentDate });
     const externalReference = paymentMethod === "MERCADO_PAGO" ? createExternalReference(member.id, paymentPeriod) : null;
     const paymentStatus = paymentMethod === "MERCADO_PAGO" ? "PENDIENTE" : "PAGADO";
     const paidAtSql = paymentMethod === "MERCADO_PAGO" ? "NULL" : "CURRENT_TIMESTAMP";
@@ -243,7 +251,7 @@ async function createManualMemberRecord({ pool, body, files, adminId, adminBranc
         method: paymentMethod,
         method_detail: paymentSummary.detail,
         status: paymentStatus,
-        paid_at: paymentMethod === "EFECTIVO" ? new Date().toISOString() : null,
+        paid_at: paymentStatus === "PAGADO" ? new Date().toISOString() : null,
         receipt_url: receiptPath ? fileUrl(req, receiptPath) : null,
         external_reference: externalReference,
       },

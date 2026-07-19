@@ -1,3 +1,12 @@
+function todayLimaDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 export const blankManualMember = {
   dni: "",
   full_name: "",
@@ -8,6 +17,7 @@ export const blankManualMember = {
   phone: "",
   profession: "",
   branch: "Consejo Nacional - Lima",
+  enrollment_date: todayLimaDate(),
 };
 
 export function onlyDniDigits(value) {

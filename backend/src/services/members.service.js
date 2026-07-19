@@ -97,7 +97,7 @@ async function createMembershipNumber(connection) {
 }
 
 // Crea el miembro cuando una solicitud pasa a APROBADO.
-async function createMemberForApprovedApplication(connection, application) {
+async function createMemberForApprovedApplication(connection, application, options = {}) {
   const [[existingMember]] = await connection.query("SELECT * FROM members WHERE application_id = ?", [
     application.id,
   ]);
@@ -105,11 +105,12 @@ async function createMemberForApprovedApplication(connection, application) {
 
   const membershipNumber = await createMembershipNumber(connection);
   const verificationCode = crypto.randomUUID();
+  const enrollmentDate = options.enrollmentDate || todayDate();
   const [memberResult] = await connection.query(
     `INSERT INTO members
        (user_id, application_id, membership_number, enrollment_date, status, verification_code)
      VALUES (?, ?, ?, ?, 'HABILITADO', ?)`,
-    [application.user_id, application.id, membershipNumber, todayDate(), verificationCode]
+    [application.user_id, application.id, membershipNumber, enrollmentDate, verificationCode]
   );
   const [[createdMember]] = await connection.query("SELECT * FROM members WHERE id = ?", [
     memberResult.insertId,
