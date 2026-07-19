@@ -23,6 +23,7 @@ export function AdminMembersPanel({
   onPaymentCountChange,
   onManualPaymentMethodsChange,
   onRegisterPayment,
+  onRegisterSinglePeriod,
   onOpenCard,
   onCloseMember,
   onNotifyEmail,
@@ -149,12 +150,18 @@ export function AdminMembersPanel({
                   payment.payment_type === "INSCRIPCION" ? "Inscripción" : "Mensualidad",
                   payment.period_month,
                   `S/ ${Number(payment.amount).toFixed(2)}`,
-                  payment.method_detail || payment.method,
+                  payment.status === "PENDIENTE" && payment.payment_type === "MENSUALIDAD"
+                    ? "Pendiente de cobro"
+                    : payment.method_detail || payment.method,
                   <StatusBadge status={payment.status} />,
                   formatDate(payment.paid_at || payment.created_at),
                   payment.status === "PAGADO" ? (
                     <button className="inline-action" onClick={() => downloadPaymentReceiptPdf(payment, selectedMember)}>
                       Descargar
+                    </button>
+                  ) : payment.status === "PENDIENTE" && payment.payment_type === "MENSUALIDAD" ? (
+                    <button className="inline-action" onClick={() => onRegisterSinglePeriod(payment.period_month)}>
+                      Cobrar mes
                     </button>
                   ) : (
                     "Pendiente"

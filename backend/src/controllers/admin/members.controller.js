@@ -322,18 +322,39 @@ async function updateMemberStatus(req, res) {
   });
 }
 
+function paymentsWithPendingDebt(member, payments) {
+  const debt = withDebt(member, payments);
+  const pendingRows = debt.pending_periods
+    .filter((period) => !payments.some((payment) => payment.payment_type === "MENSUALIDAD" && payment.period_month === period))
+    .map((period) => ({
+      id: `pending-${member.id}-${period}`,
+      member_id: Number(member.id),
+      user_id: member.user_id,
+      period_month: period,
+      amount: 20,
+      payment_type: "MENSUALIDAD",
+      method: "PENDIENTE",
+      method_detail: null,
+      status: "PENDIENTE",
+      paid_at: null,
+      created_at: null,
+      is_debt: true,
+    }));
+  return [...pendingRows, ...payments].sort((left, right) => String(right.period_month).localeCompare(String(left.period_month)));
+}
+
 async function listMemberPayments(req, res) {
   if (req.dbReady === false && snapshot.available()) {
     if (kv.enabled() || pgStore.enabled()) {
       const member = (await store().listMembers("TODOS")).find((item) => Number(item.id) === Number(req.params.id));
       if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });
       assertBranchAccess(req, member);
-      return res.json(await store().listMemberPayments(req.params.id));
+      return res.json(paymentsWithPendingDebt(member, await store().listMemberPayments(req.params.id)));
     }
     const member = snapshot.listMembers("TODOS").find((item) => Number(item.id) === Number(req.params.id));
     if (!member) return res.status(404).json({ message: "Colegiado no encontrado." });
     assertBranchAccess(req, member);
-    return res.json(snapshot.listMemberPayments(req.params.id));
+    return res.json(paymentsWithPendingDebt(member, snapshot.listMemberPayments(req.params.id)));
   }
 
   const [[member]] = await getPool().query(
@@ -350,7 +371,7 @@ async function listMemberPayments(req, res) {
     "SELECT * FROM payments WHERE member_id = ? ORDER BY period_month DESC, created_at DESC",
     [req.params.id]
   );
-  res.json(payments);
+  res.json(paymentsWithPendingDebt(member, payments));
 }
 
 async function createMemberPayment(req, res) {

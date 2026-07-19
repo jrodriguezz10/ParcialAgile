@@ -344,18 +344,22 @@ export function AdminDashboard({ token, onLogout }) {
 
   async function registerManualPayment(event) {
     event.preventDefault();
+    await registerManualPaymentFor(manualPeriod, paymentCount);
+  }
+
+  async function registerManualPaymentFor(startPeriod, count = 1, methods = manualPaymentMethods) {
     if (!selectedMember) return;
     setMessage("");
     try {
-      const periods = Array.from({ length: paymentCount }, (_, index) => {
-        const [year, month] = manualPeriod.split("-").map(Number);
+      const periods = Array.from({ length: count }, (_, index) => {
+        const [year, month] = startPeriod.split("-").map(Number);
         const date = new Date(Date.UTC(year, month - 1 + index, 1));
         return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
       });
       await api(`/api/admin/members/${selectedMember.id}/payments`, {
         method: "POST",
         token,
-        body: { periods, amount: MONTHLY_AMOUNT, payment_methods: manualPaymentMethods },
+        body: { periods, amount: MONTHLY_AMOUNT, payment_methods: methods },
       });
       await Promise.all([loadMembers(), loadMemberSummary(), openMemberPayments(selectedMember)]);
       setMessage("Pago manual registrado.");
@@ -518,6 +522,12 @@ export function AdminDashboard({ token, onLogout }) {
         onOpenPayments={openMemberPayments} onManualPeriodChange={setManualPeriod} onPaymentCountChange={updatePaymentCount}
         onManualPaymentMethodsChange={setManualPaymentMethods}
         onRegisterPayment={registerManualPayment} onOpenCard={openMemberPayments}
+        onRegisterSinglePeriod={(period) => {
+          setManualPeriod(period);
+          setPaymentCount(1);
+          setManualPaymentMethods(defaultPaymentMethods());
+          return registerManualPaymentFor(period, 1, defaultPaymentMethods());
+        }}
         onNotifyEmail={notifyEmail}
         onCloseMember={() => { setSelectedMember(null); setMemberPayments([]); }}
       />
