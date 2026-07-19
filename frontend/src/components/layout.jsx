@@ -176,9 +176,6 @@ export function AuthPageLayout({ title, subtitle, children }) {
           <span className="eyebrow">Colegiacion digital CIP</span>
           <h1>{title}</h1>
           <p>{subtitle}</p>
-          <p className="demo-disclaimer">
-            Proyecto academico de demostracion. No es un portal oficial del Colegio de Ingenieros del Peru y no debe usarse con credenciales institucionales reales.
-          </p>
         </div>
         <section className="auth-card auth-page-card" id="auth-card">
           {children}
@@ -229,12 +226,12 @@ export function InstitutionalFooter() {
         </div>
         <div>
           <span>Atencion</span>
-          <p>Lunes a viernes · 09:00 a.m. a 06:00 p.m.</p>
+          <p>Lunes a viernes - 09:00 a.m. a 06:00 p.m.</p>
           <p>Colegiacion, pagos mensuales y verificacion de carnet.</p>
         </div>
         <div>
           <span>Modulos</span>
-          <p>Solicitud · Revision · Padron · Carnet virtual</p>
+          <p>Solicitud - Revision - Padron - Carnet virtual</p>
           <p>Mensualidad S/ 20.00 con Mercado Pago</p>
         </div>
       </div>

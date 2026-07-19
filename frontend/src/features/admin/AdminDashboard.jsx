@@ -163,15 +163,17 @@ export function AdminDashboard({ token, onLogout }) {
   }, []);
 
   useEffect(() => {
+    if (!adminInfo || adminInfo.role === "CAJERO") return undefined;
     const timer = window.setInterval(() => {
       Promise.all([loadApplications(applicationFilter), loadApplicationSummary()]).catch((error) => setMessage(error.message));
     }, 15000);
     return () => window.clearInterval(timer);
-  }, [token, applicationFilter]);
+  }, [token, applicationFilter, adminInfo?.role]);
 
   useEffect(() => {
+    if (!adminInfo || adminInfo.role === "CAJERO") return;
     loadApplications(applicationFilter).catch((error) => setMessage(error.message));
-  }, [applicationFilter, token]);
+  }, [applicationFilter, token, adminInfo?.role]);
 
   useEffect(() => {
     loadMembers(memberFilter).catch((error) => setMessage(error.message));

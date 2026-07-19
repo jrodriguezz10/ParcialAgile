@@ -43,9 +43,6 @@ export function LoginAuth({ onAdminAuthenticated }) {
 
   return (
     <form className="stack" onSubmit={submit}>
-      <p className="auth-note">
-        Acceso administrativo de demostracion. Usa solo cuentas creadas para este proyecto academico.
-      </p>
       <h2 className="auth-form-title" style={{ textAlign: "center" }}>Iniciar sesión</h2>
 
       <label>

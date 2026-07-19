@@ -13,13 +13,13 @@ export default function App({ page = "user" }) {
 
   useEffect(() => {
     const titles = {
-      user: "Proyecto academico | Colegiacion digital",
-      solicitud: "Colegiatura | Proyecto academico",
-      portal: "Portal del interesado | Proyecto academico",
+      user: "Colegio de Ingenieros del Peru | Colegiacion digital",
+      solicitud: "Colegiatura | Colegio de Ingenieros",
+      portal: "Portal del colegiado | Colegio de Ingenieros",
       login: "Acceso | Colegio de Ingenieros",
       admin: "Panel de atencion | Colegio de Ingenieros",
       verify: "Carnet virtual | Colegio de Ingenieros",
-      checkout: "Resultado de pago | Proyecto academico",
+      checkout: "Resultado de pago | Colegio de Ingenieros",
     };
     document.title = titles[page] || titles.user;
   }, [page]);

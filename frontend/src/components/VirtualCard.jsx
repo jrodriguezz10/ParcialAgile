@@ -35,7 +35,7 @@ export function VirtualCard({ cardRef, user, application, member }) {
           </div>
           <div className="card-data">
             <strong>{user.full_name}</strong>
-            <small>ING. {user.profession}</small>
+            <small>{user.profession}</small>
             <div className="card-grid">
               <p>
                 <span>DNI</span>
@@ -53,7 +53,7 @@ export function VirtualCard({ cardRef, user, application, member }) {
           </div>
         </div>
         <footer>
-          <span>N° Reg. CIP: {member.membership_number}</span>
+          <span>Nro. Reg. CIP: {member.membership_number}</span>
           <b>{enabled ? "HABILITADO" : "INHABILITADO"}</b>
         </footer>
       </article>

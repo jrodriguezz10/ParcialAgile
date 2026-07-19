@@ -3,6 +3,12 @@
   background:
     linear-gradient(135deg, rgba(118, 0, 12, 0.1), transparent 45%),
     #fcfcfc;
+  display: flex;
+  flex-direction: column;
+}
+
+.public-site > .site-footer {
+  margin-top: auto;
 }
 
 .cip-header {
@@ -132,7 +138,7 @@
 }
 
 .auth-hero {
-  min-height: 620px;
+  min-height: clamp(360px, 48vh, 540px);
   background:
     linear-gradient(90deg, rgba(20, 24, 33, 0.76), rgba(129, 126, 126, 0.72)),
     var(--hero-image) center / cover no-repeat;
@@ -140,7 +146,7 @@
 
 .auth-hero-overlay {
   width: min(1280px, calc(100% - 40px));
-  min-height: 620px;
+  min-height: clamp(360px, 48vh, 540px);
   margin: 0 auto;
   padding: 48px 0;
   display: grid;
