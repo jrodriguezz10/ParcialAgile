@@ -143,13 +143,13 @@ export function UserDashboard({ token, onLogout }) {
     }
   }
 
-  async function payMonthly() {
+  async function payMonthly(selectedPeriod = period) {
     setMessage("");
     try {
       const data = await api("/api/me/payments/monthly", {
         method: "POST",
         token,
-        body: { period_month: period },
+        body: { period_month: selectedPeriod },
       });
       if (data.checkout_url) {
         window.location.href = data.checkout_url;

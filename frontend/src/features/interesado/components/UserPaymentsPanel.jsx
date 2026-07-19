@@ -33,7 +33,7 @@ export function UserPaymentsPanel({
         <h3>Pago de mensualidades</h3>
         <div className="payment-controls">
           <input type="month" value={period} onChange={(event) => onPeriodChange(event.target.value)} />
-          <Button type="button" icon={CreditCard} onClick={onPayMonthly} disabled={!member}>
+          <Button type="button" icon={CreditCard} onClick={() => onPayMonthly(period)} disabled={!member}>
             Pagar mes seleccionado
           </Button>
           <Button type="button" icon={WalletCards} variant="secondary" onClick={onPayFullDebt} disabled={!member || debtAmount <= 0}>
@@ -46,6 +46,23 @@ export function UserPaymentsPanel({
             : "Tus mensualidades estan al dia."}
         </p>
       </div>
+
+      {pendingPeriods.length > 0 && (
+        <div className="payment-box">
+          <h3>Mensualidades vencidas</h3>
+          <DataTable
+            columns={["Periodo", "Monto", "Estado", "Accion"]}
+            rows={pendingPeriods.map((pendingPeriod) => [
+              pendingPeriod,
+              "S/ 20.00",
+              <StatusBadge status="PENDIENTE" />,
+              <button className="inline-action" onClick={() => onPayMonthly(pendingPeriod)}>
+                Pagar
+              </button>,
+            ])}
+          />
+        </div>
+      )}
 
       <DataTable
         columns={["Tipo", "Periodo", "Monto", "Método", "Estado", "Fecha", "Comprobante"]}

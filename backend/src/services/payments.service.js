@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const env = require("../config/env");
 const { getPool } = require("../config/database");
-const { currentPeriod, effectiveEnrollmentPeriod, periodsBetween } = require("../utils/dates");
+const { currentPeriod, effectiveEnrollmentPeriod, periodsBetween, previousPeriod } = require("../utils/dates");
 const { frontendUrl, originFromReq } = require("../utils/files");
 const { refreshMemberStatus } = require("./members.service");
 
@@ -176,7 +176,7 @@ async function getPendingPeriods(memberId) {
     "SELECT period_month, payment_type, status FROM payments WHERE member_id = ? AND status = 'PAGADO'",
     [memberId]
   );
-  const allPeriods = periodsBetween(effectiveEnrollmentPeriod(member.enrollment_date, paidRows), currentPeriod());
+  const allPeriods = periodsBetween(effectiveEnrollmentPeriod(member.enrollment_date, paidRows), previousPeriod(currentPeriod()));
   if (!allPeriods.length) return [];
 
   const paid = new Set(paidRows.filter((row) => row.payment_type === "MENSUALIDAD").map((row) => row.period_month));

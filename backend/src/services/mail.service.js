@@ -24,6 +24,13 @@ function requireTransporter() {
   return transporter;
 }
 
+function cipFromAddress() {
+  const raw = String(env.smtp.from || env.smtp.user || "").trim();
+  const match = raw.match(/<([^>]+)>/);
+  const address = match?.[1] || raw;
+  return address ? `"CIP" <${address}>` : "CIP";
+}
+
 async function sendRegistrationCodeEmail(email, fullName, code) {
   const subject = "Codigo de verificacion - Colegiatura digital CIP";
   const body = [
@@ -38,7 +45,7 @@ async function sendRegistrationCodeEmail(email, fullName, code) {
 
   try {
     await transporter.sendMail({
-      from: env.smtp.from,
+      from: cipFromAddress(),
       to: email,
       subject,
       text: body,
@@ -74,7 +81,7 @@ async function sendDebtNoticeEmail({ email, fullName, debtAmount, pendingPeriods
   const transporter = requireTransporter();
   try {
     await transporter.sendMail({
-      from: env.smtp.from,
+      from: cipFromAddress(),
       to: email,
       subject,
       text: body,
