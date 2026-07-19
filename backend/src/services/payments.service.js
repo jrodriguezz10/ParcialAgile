@@ -18,7 +18,7 @@ async function createMercadoPagoPreference(checkout, user, req) {
       {
         id: checkout.item_id || `mensualidad-${checkout.period_month || currentPeriod()}`,
         title: checkout.title || `Mensualidad CIP ${checkout.period_month}`,
-        description: checkout.description || `Pago mensual de S/ 20.00 - ${user.full_name}`,
+        description: checkout.description || `Pago mensual de S/ 2.00 - ${user.full_name}`,
         quantity: 1,
         unit_price: Number(checkout.amount),
         currency_id: "PEN",
@@ -133,7 +133,7 @@ async function approveBatchByExternalReference(externalReference, mpPaymentId, p
       await connection.query(
         `INSERT INTO payments
            (member_id, user_id, period_month, amount, payment_type, method, status, paid_at, mp_payment_id)
-         VALUES (?, ?, ?, 20.00, 'MENSUALIDAD', 'MERCADO_PAGO_TOTAL', 'PAGADO', ?, ?)
+         VALUES (?, ?, ?, 2.00, 'MENSUALIDAD', 'MERCADO_PAGO_TOTAL', 'PAGADO', ?, ?)
          ON DUPLICATE KEY UPDATE
            amount = VALUES(amount),
            method = 'MERCADO_PAGO_TOTAL',

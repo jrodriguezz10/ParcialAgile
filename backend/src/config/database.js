@@ -160,7 +160,7 @@ async function migrate() {
       member_id INT NOT NULL,
       user_id INT NOT NULL,
       period_month CHAR(7) NOT NULL,
-      amount DECIMAL(10,2) NOT NULL DEFAULT 20.00,
+      amount DECIMAL(10,2) NOT NULL DEFAULT 2.00,
       payment_type VARCHAR(20) NOT NULL DEFAULT 'MENSUALIDAD',
       method VARCHAR(30) NOT NULL DEFAULT 'MERCADO_PAGO',
       method_detail TEXT NULL,

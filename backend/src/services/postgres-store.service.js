@@ -390,7 +390,7 @@ async function listMemberPayments(memberId) {
     .sort((a, b) => String(b.period_month || "").localeCompare(String(a.period_month || "")) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
 }
 
-async function createMemberPayment(memberId, periodMonth, amount = 20, adminId = null, method = "MANUAL", options = {}) {
+async function createMemberPayment(memberId, periodMonth, amount = 2, adminId = null, method = "MANUAL", options = {}) {
   const members = await getCollection("members");
   const member = members.find((item) => Number(item.id) === Number(memberId));
   if (!member) return null;

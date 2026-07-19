@@ -19,7 +19,7 @@ function withDebt(member, payments) {
   const start = effectiveEnrollmentPeriod(member.enrollment_date, payments || []);
   const end = previousPeriod(currentPeriod());
   const pendingPeriods = start && start <= end ? periodsBetween(start, end).filter((period) => !paid.has(period)) : [];
-  return { ...member, pending_periods: pendingPeriods, debt_count: pendingPeriods.length, debt_amount: pendingPeriods.length * 20 };
+  return { ...member, pending_periods: pendingPeriods, debt_count: pendingPeriods.length, debt_amount: pendingPeriods.length * 2 };
 }
 
 function canAccessBranch(req, branch) {
@@ -161,7 +161,7 @@ async function createKvManualMember(req) {
   const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
   const profession = String(req.body.profession || "").trim();
   const paymentPeriod = isValidPeriod(req.body.payment_period_month) ? req.body.payment_period_month : currentPeriod();
-  const paymentSummary = paymentMethodSummary(req.body.payment_methods, 20, { allowMercadoPago: true });
+  const paymentSummary = paymentMethodSummary(req.body.payment_methods, 2, { allowMercadoPago: true });
   const paymentMethod = paymentSummary.method === "MANUAL"
     ? String(req.body.payment_method || "EFECTIVO").trim().toUpperCase()
     : paymentSummary.method;
@@ -191,7 +191,7 @@ async function createKvManualMember(req) {
     req.auth.sub
   );
 
-  const paymentAmount = 20;
+  const paymentAmount = 2;
   const externalReference = paymentMethod === "MERCADO_PAGO" ? createExternalReference(member.id, paymentPeriod) : null;
   const paymentStatus = paymentMethod === "MERCADO_PAGO" ? "PENDIENTE" : "PAGADO";
   const createdPayment = await kv.createMemberPayment(member.id, paymentPeriod, paymentAmount, req.auth.sub, paymentMethod, {
@@ -331,7 +331,7 @@ function paymentsWithPendingDebt(member, payments) {
       member_id: Number(member.id),
       user_id: member.user_id,
       period_month: period,
-      amount: 20,
+      amount: 2,
       payment_type: "MENSUALIDAD",
       method: "PENDIENTE",
       method_detail: null,
@@ -378,7 +378,7 @@ async function createMemberPayment(req, res) {
   const requestedPeriods = Array.isArray(req.body.periods) ? req.body.periods : [req.body.period_month || currentPeriod()];
   const periods = [...new Set(requestedPeriods.map(String))];
   const period = periods[0];
-  const amount = Number(req.body.amount || 20);
+  const amount = Number(req.body.amount || 2);
   const paymentTotal = periods.length * amount;
   const paymentSummary = paymentMethodSummary(req.body.payment_methods, paymentTotal);
   const perPeriodPaymentSummary = proratedPaymentMethodSummary(req.body.payment_methods, periods.length, paymentTotal, paymentSummary);

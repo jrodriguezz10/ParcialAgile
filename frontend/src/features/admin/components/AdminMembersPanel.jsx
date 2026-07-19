@@ -37,7 +37,7 @@ export function AdminMembersPanel({
       return haystack.includes(normalizedSearch);
     });
   }, [members, normalizedSearch]);
-  const expectedTotal = paymentCount * 20;
+  const expectedTotal = paymentCount * 2;
   const paymentTotal = (manualPaymentMethods || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const paymentStatus = getPaymentStatus(manualPaymentMethods, expectedTotal);
 
@@ -125,7 +125,7 @@ export function AdminMembersPanel({
               <div className="payment-panel-head">
                 <div>
                   <span>Pago manual</span>
-                  <strong>Mensualidad S/ 20.00</strong>
+                  <strong>Mensualidad S/ 2.00</strong>
                 </div>
                 <form className="payment-controls" onSubmit={onRegisterPayment}>
                   <input type="month" value={manualPeriod} onChange={(event) => onManualPeriodChange(event.target.value)} />

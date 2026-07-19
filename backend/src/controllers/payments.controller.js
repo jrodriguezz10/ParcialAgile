@@ -68,17 +68,17 @@ async function createInscriptionPayment(req, res) {
     email: bodyEmail,
   };
   const checkout = {
-    amount: 20,
+    amount: 2,
     period_month: currentPeriod(),
     external_reference: `CIP-INSCRIPCION-${user.dni || user.id}-${Date.now()}`,
     item_id: `inscripcion-${user.dni || user.id}`,
     title: "Pago de inscripcion CIP",
-    description: `Pago de inscripcion de S/ 20.00 - ${user.full_name}`,
+    description: `Pago de inscripcion de S/ 2.00 - ${user.full_name}`,
   };
   const mp = await createMercadoPagoPreference(checkout, user, req);
   res.status(201).json({
     payment_type: "INSCRIPCION",
-    amount: 20,
+    amount: 2,
     status: mp.checkout_url ? "PENDIENTE" : "NO_CONFIGURADO",
     ...mp,
   });
@@ -95,7 +95,7 @@ async function listUserPayments(req, res) {
       member,
       payments,
       pending_periods: pendingPeriods,
-      debt_amount: pendingPeriods.length * 20,
+      debt_amount: pendingPeriods.length * 2,
     });
   }
 
@@ -119,7 +119,7 @@ async function listUserPayments(req, res) {
       member: { ...member, status: await refreshMemberStatus(member.id) },
       payments,
       pending_periods: pendingPeriods,
-      debt_amount: pendingPeriods.length * 20,
+      debt_amount: pendingPeriods.length * 2,
     });
   } catch (error) {
     console.warn("Pagos temporales por error de base de datos:", error.message);
@@ -146,25 +146,25 @@ async function createMonthlyPayment(req, res) {
     }
 
     const externalReference = createExternalReference(member.id, period);
-    let created = await store().createMemberPayment(member.id, period, 20, null, "MERCADO_PAGO", {
+    let created = await store().createMemberPayment(member.id, period, 2, null, "MERCADO_PAGO", {
       status: "PENDIENTE",
       external_reference: externalReference,
     });
     const mp = await createMercadoPagoPreference(
       {
         ...created.payment,
-        amount: 20,
+        amount: 2,
         period_month: period,
         external_reference: externalReference,
         item_id: `mensualidad-${member.id}-${period}`,
         title: `Mensualidad CIP ${period}`,
-        description: `Mensualidad CIP de S/ 20.00 - ${period}`,
+        description: `Mensualidad CIP de S/ 2.00 - ${period}`,
       },
       user,
       req
     );
     if (mp.preference_id) {
-      created = await store().createMemberPayment(member.id, period, 20, null, "MERCADO_PAGO", {
+      created = await store().createMemberPayment(member.id, period, 2, null, "MERCADO_PAGO", {
         status: "PENDIENTE",
         external_reference: externalReference,
         mp_preference_id: mp.preference_id,
@@ -200,7 +200,7 @@ async function createMonthlyPayment(req, res) {
   const externalReference = createExternalReference(member.id, period);
   await pool.query(
     `INSERT INTO payments (member_id, user_id, period_month, amount, payment_type, method, status, external_reference)
-     VALUES (?, ?, ?, 20.00, 'MENSUALIDAD', 'MERCADO_PAGO', 'PENDIENTE', ?)
+     VALUES (?, ?, ?, 2.00, 'MENSUALIDAD', 'MERCADO_PAGO', 'PENDIENTE', ?)
      ON DUPLICATE KEY UPDATE
        status = IF(status = 'PAGADO', status, 'PENDIENTE'),
        method = IF(status = 'PAGADO', method, 'MERCADO_PAGO'),
@@ -232,11 +232,11 @@ async function createFullPayment(req, res) {
     if (!pendingPeriods.length) {
       return res.json({ message: "No tienes mensualidades pendientes.", pending_periods: [], debt_amount: 0 });
     }
-    const amount = pendingPeriods.length * 20;
+    const amount = pendingPeriods.length * 2;
     const externalReference = createBatchExternalReference(member.id);
     let payments = [];
     for (const period of pendingPeriods) {
-      const created = await store().createMemberPayment(member.id, period, 20, null, "MERCADO_PAGO_TOTAL", {
+      const created = await store().createMemberPayment(member.id, period, 2, null, "MERCADO_PAGO_TOTAL", {
         status: "PENDIENTE",
         external_reference: externalReference,
       });
@@ -253,7 +253,7 @@ async function createFullPayment(req, res) {
     if (mp.preference_id) {
       payments = [];
       for (const period of pendingPeriods) {
-        const created = await store().createMemberPayment(member.id, period, 20, null, "MERCADO_PAGO_TOTAL", {
+        const created = await store().createMemberPayment(member.id, period, 2, null, "MERCADO_PAGO_TOTAL", {
           status: "PENDIENTE",
           external_reference: externalReference,
           mp_preference_id: mp.preference_id,
@@ -282,7 +282,7 @@ async function createFullPayment(req, res) {
     return res.json({ message: "No tienes mensualidades pendientes.", pending_periods: [], debt_amount: 0 });
   }
 
-  const amount = pendingPeriods.length * 20;
+  const amount = pendingPeriods.length * 2;
   const externalReference = createBatchExternalReference(member.id);
   const [result] = await pool.query(
     `INSERT INTO payment_batches (member_id, user_id, periods_json, amount, status, external_reference)
@@ -347,7 +347,7 @@ async function confirmMercadoPagoReturn(req, res) {
         user_id: req.auth.sub,
         dni: req.auth.dni,
         period_month: currentPeriod(),
-        amount: 20,
+        amount: 2,
         payment_type: "INSCRIPCION",
         method: "MERCADO_PAGO",
         status: "PAGADO",

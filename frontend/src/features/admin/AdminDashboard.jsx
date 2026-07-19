@@ -25,7 +25,7 @@ const ADMIN_NAV_ITEMS = [
   { keyName: "configuracion", icon: Settings, label: "Configuracion", text: "Admins" },
 ];
 
-const MONTHLY_AMOUNT = 20;
+const MONTHLY_AMOUNT = 2;
 
 function defaultPaymentMethods(total = MONTHLY_AMOUNT) {
   return [{ method: "EFECTIVO", amount: total }];

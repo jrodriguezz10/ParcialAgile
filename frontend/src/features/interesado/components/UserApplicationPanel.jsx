@@ -66,13 +66,13 @@ export function UserApplicationPanel({
         {!hasApplication && (
           <div className="info-banner">
             <AlertTriangle size={18} />
-            <span>Antes de enviar, realiza el pago de inscripcion de S/ 20.00 con Mercado Pago y adjunta el comprobante.</span>
+            <span>Antes de enviar, realiza el pago de inscripcion de S/ 2.00 con Mercado Pago y adjunta el comprobante.</span>
           </div>
         )}
         {!hasApplication && (
           <div className="button-row">
             <Button type="button" icon={Upload} onClick={onPayRegistration}>
-              Pagar S/ 20.00 con Mercado Pago
+              Pagar S/ 2.00 con Mercado Pago
             </Button>
           </div>
         )}

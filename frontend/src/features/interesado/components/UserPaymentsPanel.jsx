@@ -28,7 +28,7 @@ export function UserPaymentsPanel({
       id: `pending-${pendingPeriod}`,
       payment_type: "MENSUALIDAD",
       period_month: pendingPeriod,
-      amount: 20,
+      amount: 2,
       method: "PENDIENTE",
       status: "PENDIENTE",
       paid_at: null,

@@ -122,7 +122,7 @@ async function createManualMemberRecord({ pool, body, files, adminId, adminBranc
   const receiptPath = (storeFilesInDatabase ? fileDataUrl(files?.receipt?.[0]) : storedPath(files?.receipt?.[0])) || null;
   const paymentPeriod = isValidPeriod(body.payment_period_month) ? body.payment_period_month : currentPeriod();
   const enrollmentDate = parseEnrollmentDate(body.enrollment_date, paymentPeriod);
-  const paymentAmount = 20;
+  const paymentAmount = 2;
   const paymentSummary = paymentMethodSummary(body.payment_methods, paymentAmount, body.payment_method);
   const paymentMethod = paymentSummary.method;
 

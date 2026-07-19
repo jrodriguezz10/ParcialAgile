@@ -46,7 +46,7 @@ export function AuthLayout() {
           <img src={mercadoPagoLogo} alt="Mercado Pago" />
           <div>
             <span>Mensualidad</span>
-            <h3>Pago mensual de S/ 20.00</h3>
+            <h3>Pago mensual de S/ 2.00</h3>
             <p>Checkout con Mercado Pago y actualizacion automatica de habilitado o inhabilitado.</p>
           </div>
         </article>
@@ -232,7 +232,7 @@ export function InstitutionalFooter() {
         <div>
           <span>Modulos</span>
           <p>Solicitud - Revision - Padron - Carnet virtual</p>
-          <p>Mensualidad S/ 20.00 con Mercado Pago</p>
+          <p>Mensualidad S/ 2.00 con Mercado Pago</p>
         </div>
       </div>
       <div className="footer-bottom">

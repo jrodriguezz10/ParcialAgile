@@ -135,7 +135,7 @@ async function approveApplication(req, res) {
     await connection.query(
       `INSERT INTO payments
          (member_id, user_id, period_month, amount, payment_type, method, status, paid_at, receipt_path, created_by_admin)
-       VALUES (?, ?, ?, 20.00, 'INSCRIPCION', 'RECIBO_INSCRIPCION', 'PAGADO', CURRENT_TIMESTAMP, ?, ?)
+       VALUES (?, ?, ?, 2.00, 'INSCRIPCION', 'RECIBO_INSCRIPCION', 'PAGADO', CURRENT_TIMESTAMP, ?, ?)
        ON DUPLICATE KEY UPDATE
          status = 'PAGADO',
          paid_at = COALESCE(paid_at, CURRENT_TIMESTAMP),

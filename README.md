@@ -96,7 +96,7 @@ El registro manual del administrador exige una respuesta valida de la API DNI an
 
 ## Pagos
 
-La mensualidad es `S/ 20.00`.
+La mensualidad es `S/ 2.00`.
 
 - Si falta cualquier mensualidad desde la inscripción hasta el mes actual, el colegiado queda `INHABILITADO`.
 - Al regularizar todas las mensualidades pendientes, queda `HABILITADO`.

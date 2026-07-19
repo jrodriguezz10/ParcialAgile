@@ -10,7 +10,7 @@ function calculateDebt(member, payments) {
   const start = effectiveEnrollmentPeriod(member.enrollment_date, payments);
   const end = previousPeriod(currentPeriod());
   const pendingPeriods = start && start <= end ? periodsBetween(start, end).filter((period) => !paid.has(period)) : [];
-  return { pendingPeriods, debtAmount: pendingPeriods.length * 20 };
+  return { pendingPeriods, debtAmount: pendingPeriods.length * 2 };
 }
 
 async function notifyOverdueEmail(req, res) {

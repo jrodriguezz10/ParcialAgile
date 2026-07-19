@@ -21,7 +21,7 @@ export function AdminRegisterPanel({
   onlyDniDigits,
 }) {
   const registrationPaymentTotal = (registrationPayment.methods || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const registrationPaymentStatus = getPaymentStatus(registrationPayment.methods, 20);
+  const registrationPaymentStatus = getPaymentStatus(registrationPayment.methods, 2);
   const registrationPaymentMatches = registrationPayment.method === "MERCADO_PAGO" || registrationPaymentStatus.canSubmit;
 
   return (
@@ -154,7 +154,7 @@ export function AdminRegisterPanel({
                 onChange={(event) => onRegistrationPaymentChange((current) => ({
                   ...current,
                   method: event.target.value,
-                  methods: [{ method: event.target.value, amount: 20 }],
+                  methods: [{ method: event.target.value, amount: 2 }],
                 }))}
               >
                 <option value="EFECTIVO">Efectivo</option>
@@ -169,7 +169,7 @@ export function AdminRegisterPanel({
               <div className="wide">
                 <PaymentMethodsEditor
                   methods={registrationPayment.methods}
-                  expectedTotal={20}
+                  expectedTotal={2}
                   onChange={(methods) => onRegistrationPaymentChange((current) => ({
                     ...current,
                     method: methods[0]?.method || "EFECTIVO",
@@ -177,7 +177,7 @@ export function AdminRegisterPanel({
                   }))}
                 />
                 <small className={registrationPaymentStatus.canSubmit ? "payment-total ok" : "payment-total warning"}>
-                  Total recibido S/ {Number(registrationPaymentTotal).toFixed(2)} de S/ 20.00
+                  Total recibido S/ {Number(registrationPaymentTotal).toFixed(2)} de S/ 2.00
                   {registrationPaymentStatus.missing > 0.01 && ` - Falta S/ ${registrationPaymentStatus.missing.toFixed(2)}`}
                   {registrationPaymentStatus.change > 0.01 && ` - Vuelto S/ ${registrationPaymentStatus.change.toFixed(2)}`}
                   {registrationPaymentStatus.invalidChange && " - El vuelto solo aplica con efectivo"}

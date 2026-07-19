@@ -283,7 +283,7 @@ export function UserDashboard({ token, onLogout }) {
         {
           icon: WalletCards,
           label: "Mensualidad",
-          value: debtAmount > 0 ? `Deuda S/ ${debtAmount.toFixed(2)}` : `S/ 20.00 - ${period}`,
+          value: debtAmount > 0 ? `Deuda S/ ${debtAmount.toFixed(2)}` : `S/ 2.00 - ${period}`,
         },
       ]}
     >
