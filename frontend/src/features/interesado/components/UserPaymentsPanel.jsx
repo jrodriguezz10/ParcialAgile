@@ -17,6 +17,31 @@ export function UserPaymentsPanel({
   onPayMonthly,
   onPayFullDebt,
 }) {
+  const monthlyPaymentPeriods = new Set(
+    payments
+      .filter((payment) => payment.payment_type === "MENSUALIDAD")
+      .map((payment) => payment.period_month),
+  );
+  const pendingPaymentRows = pendingPeriods
+    .filter((pendingPeriod) => !monthlyPaymentPeriods.has(pendingPeriod))
+    .map((pendingPeriod) => ({
+      id: `pending-${pendingPeriod}`,
+      payment_type: "MENSUALIDAD",
+      period_month: pendingPeriod,
+      amount: 20,
+      method: "PENDIENTE",
+      status: "PENDIENTE",
+      paid_at: null,
+      created_at: null,
+    }));
+  const displayPayments = [...pendingPaymentRows, ...payments].sort((left, right) => {
+    const periodCompare = String(right.period_month || "").localeCompare(String(left.period_month || ""));
+    if (periodCompare) return periodCompare;
+    if (left.payment_type !== right.payment_type) return left.payment_type === "MENSUALIDAD" ? -1 : 1;
+    if (left.status !== right.status) return left.status === "PENDIENTE" ? -1 : 1;
+    return 0;
+  });
+
   return (
     <section className={`panel ${activeModule === "pagos" ? "" : "module-hidden"}`} id="pagos">
       <div className="section-title">
@@ -47,35 +72,22 @@ export function UserPaymentsPanel({
         </p>
       </div>
 
-      {pendingPeriods.length > 0 && (
-        <div className="payment-box">
-          <h3>Mensualidades vencidas</h3>
-          <DataTable
-            columns={["Periodo", "Monto", "Estado", "Accion"]}
-            rows={pendingPeriods.map((pendingPeriod) => [
-              pendingPeriod,
-              "S/ 20.00",
-              <StatusBadge status="PENDIENTE" />,
-              <button className="inline-action" onClick={() => onPayMonthly(pendingPeriod)}>
-                Pagar
-              </button>,
-            ])}
-          />
-        </div>
-      )}
-
       <DataTable
         columns={["Tipo", "Periodo", "Monto", "Método", "Estado", "Fecha", "Comprobante"]}
-        rows={payments.map((payment) => [
+        rows={displayPayments.map((payment) => [
           payment.payment_type === "INSCRIPCION" ? "Inscripción" : "Mensualidad",
           payment.period_month,
           `S/ ${Number(payment.amount).toFixed(2)}`,
-          payment.method,
+          payment.status === "PENDIENTE" && payment.payment_type === "MENSUALIDAD" ? "Pendiente de pago" : payment.method,
           <StatusBadge status={payment.status} />,
           formatDate(payment.paid_at || payment.created_at),
           payment.status === "PAGADO" ? (
             <button className="inline-action" onClick={() => downloadPaymentReceiptPdf(payment, user)}>
               Descargar
+            </button>
+          ) : payment.payment_type === "MENSUALIDAD" ? (
+            <button className="inline-action" onClick={() => onPayMonthly(payment.period_month)}>
+              Pagar
             </button>
           ) : (
             "Pendiente"
