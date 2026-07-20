@@ -48,3 +48,29 @@ test("login admin usa snapshot cuando la base no esta lista", async () => {
   assert.equal(res.body.admin.name, "Cajera La Libertad");
   assert.ok(res.body.token);
 });
+
+test("snapshot aprueba solicitud y genera carnet", () => {
+  const uniqueDni = String(Date.now()).slice(-8);
+  const { application } = snapshot.createPublicApplication({
+    body: {
+      user_id: `test-${uniqueDni}`,
+      dni: uniqueDni,
+      full_name: "USUARIO PRUEBA SNAPSHOT",
+      email: `snapshot-${uniqueDni}@correo.com`,
+      profession: "Ingenieria de Sistemas",
+      branch: "Consejo Nacional - Lima",
+    },
+    files: {
+      photo: "data:image/png;base64,AA==",
+      degreePdf: "data:application/pdf;base64,AA==",
+      receipt: "data:application/pdf;base64,AA==",
+    },
+  });
+
+  const member = snapshot.approveApplication(application.id, "Aprobado en prueba", 1);
+  const approved = snapshot.getApplication(application.id);
+
+  assert.equal(approved.status, "APROBADO");
+  assert.ok(member.membership_number.startsWith("CIP-"));
+  assert.equal(member.dni, uniqueDni);
+});

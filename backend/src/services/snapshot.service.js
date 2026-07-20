@@ -1,3 +1,5 @@
+const crypto = require("crypto");
+
 let snapshot = null;
 
 try {
@@ -257,6 +259,83 @@ function getApplication(id) {
   return listApplications("TODOS").find((application) => Number(application.id) === Number(id)) || null;
 }
 
+function setApplicationStatus(id, status, observations = null, adminId = null) {
+  const applications = snapshot?.applications || [];
+  const index = applications.findIndex((application) => Number(application.id) === Number(id));
+  if (index === -1) return null;
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  Object.assign(applications[index], {
+    status,
+    observations,
+    reviewed_at: now,
+    reviewed_by: adminId,
+    updated_at: now,
+  });
+  return getApplication(id);
+}
+
+function approveApplication(id, observations = null, adminId = null) {
+  const application = setApplicationStatus(id, "APROBADO", observations, adminId);
+  if (!application) return null;
+
+  const members = snapshot?.members || [];
+  let member = members.find((item) => Number(item.application_id) === Number(application.id));
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  const currentPeriod = new Date().toISOString().slice(0, 7);
+
+  if (!member) {
+    const nextId = maxId(members) + 1;
+    member = {
+      id: nextId,
+      user_id: application.user_id,
+      application_id: application.id,
+      membership_number: `CIP-${new Date().getFullYear()}-${String(nextId).padStart(5, "0")}`,
+      enrollment_date: new Date().toISOString().slice(0, 10),
+      status: "HABILITADO",
+      status_override: null,
+      status_reason: null,
+      verification_code: crypto.randomBytes(24).toString("hex"),
+      created_at: now,
+      updated_at: now,
+    };
+    members.unshift(member);
+  } else {
+    member.status = "HABILITADO";
+    member.updated_at = now;
+  }
+
+  const payments = snapshot?.payments || [];
+  const existingPayment = payments.find(
+    (payment) =>
+      Number(payment.member_id) === Number(member.id) &&
+      payment.period_month === currentPeriod &&
+      payment.payment_type === "INSCRIPCION"
+  );
+  if (!existingPayment) {
+    payments.unshift({
+      id: maxId(payments) + 1,
+      member_id: member.id,
+      user_id: application.user_id,
+      period_month: currentPeriod,
+      amount: 2,
+      payment_type: "INSCRIPCION",
+      method: "RECIBO_INSCRIPCION",
+      method_detail: null,
+      status: "PAGADO",
+      paid_at: now,
+      external_reference: null,
+      mp_preference_id: null,
+      mp_payment_id: null,
+      receipt_path: application.receipt_path || null,
+      created_by_admin: adminId,
+      created_at: now,
+      updated_at: now,
+    });
+  }
+
+  return listMembers("TODOS").find((item) => Number(item.id) === Number(member.id)) || member;
+}
+
 function listMembers(status = "") {
   const normalized = status.toUpperCase();
   const users = snapshot?.users || [];
@@ -303,6 +382,8 @@ module.exports = {
   createPublicApplication,
   listApplications,
   getApplication,
+  setApplicationStatus,
+  approveApplication,
   listMembers,
   listMemberPayments,
   listUsers,

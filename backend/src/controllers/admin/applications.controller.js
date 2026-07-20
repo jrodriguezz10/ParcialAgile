@@ -98,6 +98,22 @@ async function approveApplication(req, res) {
     const member = await store().approveApplication(req.params.id, req.body.observations || null, req.auth.sub);
     return res.json({ message: "Solicitud aprobada y carnet generado.", member });
   }
+  if (req.dbReady === false && snapshot.available()) {
+    const application = snapshot.getApplication(req.params.id);
+    if (!application) return res.status(404).json({ message: "Solicitud no encontrada." });
+    if (!inAdminBranch(req, application)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
+    if (application.status === "APROBADO") {
+      const member = snapshot
+        .listMembers("TODOS")
+        .find((item) => Number(item.application_id) === Number(application.id) || String(item.user_id) === String(application.user_id));
+      return res.json({ message: "La solicitud ya estaba aprobada.", member });
+    }
+    if (!application.photo_path || !application.degree_pdf_path || !application.receipt_path) {
+      return res.status(422).json({ message: "La solicitud no tiene todos los documentos." });
+    }
+    const member = snapshot.approveApplication(req.params.id, req.body.observations || null, req.auth.sub);
+    return res.json({ message: "Solicitud aprobada y carnet generado.", member });
+  }
 
   const pool = getPool();
   const connection = await pool.getConnection();
@@ -170,6 +186,17 @@ async function observeApplication(req, res) {
     if (!row) return res.status(404).json({ message: "Solicitud no encontrada." });
     return res.json({ message: "Solicitud observada." });
   }
+  if (req.dbReady === false && snapshot.available()) {
+    const application = snapshot.getApplication(req.params.id);
+    if (!application) return res.status(404).json({ message: "Solicitud no encontrada." });
+    if (!inAdminBranch(req, application)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
+    if (application.status === "APROBADO") {
+      return res.status(409).json({ message: "Una solicitud aprobada ya tiene carnet generado y no puede observarse." });
+    }
+    const row = snapshot.setApplicationStatus(req.params.id, "OBSERVADO", observations, req.auth.sub);
+    if (!row) return res.status(404).json({ message: "Solicitud no encontrada." });
+    return res.json({ message: "Solicitud observada." });
+  }
   const [[application]] = await getPool().query(
     `SELECT a.status, u.branch
      FROM applications a
@@ -202,6 +229,22 @@ async function rejectApplication(req, res) {
       return res.status(409).json({ message: "Una solicitud aprobada ya tiene carnet generado y no puede rechazarse." });
     }
     const row = await store().setApplicationStatus(
+      req.params.id,
+      "RECHAZADO",
+      observations || "Solicitud rechazada por el Colegio.",
+      req.auth.sub
+    );
+    if (!row) return res.status(404).json({ message: "Solicitud no encontrada." });
+    return res.json({ message: "Solicitud rechazada." });
+  }
+  if (req.dbReady === false && snapshot.available()) {
+    const application = snapshot.getApplication(req.params.id);
+    if (!application) return res.status(404).json({ message: "Solicitud no encontrada." });
+    if (!inAdminBranch(req, application)) return res.status(404).json({ message: "Solicitud no encontrada en tu sede." });
+    if (application.status === "APROBADO") {
+      return res.status(409).json({ message: "Una solicitud aprobada ya tiene carnet generado y no puede rechazarse." });
+    }
+    const row = snapshot.setApplicationStatus(
       req.params.id,
       "RECHAZADO",
       observations || "Solicitud rechazada por el Colegio.",
