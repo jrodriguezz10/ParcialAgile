@@ -26,10 +26,22 @@ export function setAdminToken(token) {
 
 export function clearUserToken() {
   localStorage.removeItem("cip_user_token");
+  clearUserApplicationDrafts();
 }
 
 export function clearAdminToken() {
   localStorage.removeItem("cip_admin_token");
+}
+
+export function clearUserApplicationDrafts() {
+  try {
+    localStorage.removeItem("cip_application_draft");
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith("cip_application_draft:"))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // La limpieza local no debe bloquear el acceso al portal.
+  }
 }
 
 export async function api(path, options = {}) {

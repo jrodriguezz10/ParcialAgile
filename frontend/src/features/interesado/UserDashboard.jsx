@@ -362,7 +362,10 @@ function readApplicationDraft(token, dni) {
       clearApplicationDraft(token);
       return null;
     }
-    if (draft.dni && dni && draft.dni !== dni) return null;
+    if (draft.dni && dni && draft.dni !== dni) {
+      clearApplicationDraft(token);
+      return null;
+    }
     return draft;
   } catch {
     return null;
