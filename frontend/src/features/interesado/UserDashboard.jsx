@@ -5,6 +5,7 @@ import { ProfileCard } from "../../components/ui";
 import { isValidEngineeringCareer } from "../../constants/catalogs";
 import { APP_STATUS, MEMBER_STATUS, blankProfile } from "../../constants/status";
 import { api } from "../../lib/api";
+import { cacheSubmittedApplication, mergeUserBundle } from "../../lib/localFallbackStore";
 import { currentPeriod } from "../../utils/format";
 import { UserApplicationPanel } from "./components/UserApplicationPanel";
 import { UserCardPanel } from "./components/UserCardPanel";
@@ -56,17 +57,18 @@ export function UserDashboard({ token, onLogout }) {
         api("/api/me", { token }),
         api("/api/me/payments", { token }),
       ]);
-      setBundle(me);
+      const mergedMe = mergeUserBundle(me);
+      setBundle(mergedMe);
       setPayments(paymentData.payments || []);
       setPendingPeriods(paymentData.pending_periods || []);
       setDebtAmount(Number(paymentData.debt_amount || 0));
-      const loadedUser = { ...blankProfile, ...me.user };
+      const loadedUser = { ...blankProfile, ...mergedMe.user };
       if (/^pendiente$/i.test(String(loadedUser.profession || "").trim())) loadedUser.profession = "";
       if (/^[0-9]{8}@pendiente\.cip\.local$/i.test(String(loadedUser.email || ""))) loadedUser.email = "";
       clearLegacyApplicationDraft();
       const savedDraft = readApplicationDraft(token, loadedUser.dni);
-      setForm(!me.application && savedDraft ? { ...loadedUser, ...savedDraft, dni: savedDraft.dni || loadedUser.dni } : loadedUser);
-      setApplicationUnlocked(!me.application);
+      setForm(!mergedMe.application && savedDraft ? { ...loadedUser, ...savedDraft, dni: savedDraft.dni || loadedUser.dni } : loadedUser);
+      setApplicationUnlocked(!mergedMe.application);
       setApplicationLookupMessage("");
       setPeriod(me.current_period || currentPeriod());
     } catch (error) {
@@ -142,7 +144,8 @@ export function UserDashboard({ token, onLogout }) {
         body: payload,
         form: true,
       });
-      setBundle(data);
+      await cacheSubmittedApplication(data, form, files);
+      setBundle(mergeUserBundle(data));
       clearApplicationDraft(token);
       setFiles({ photo: null, degreePdf: null, receipt: null });
       setMessage("Solicitud enviada al Colegio de Ingenieros.");

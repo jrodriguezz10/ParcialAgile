@@ -4,6 +4,12 @@ import { DashboardShell } from "../../components/layout";
 import { ProfileCard } from "../../components/ui";
 import { isValidEngineeringCareer } from "../../constants/catalogs";
 import { api } from "../../lib/api";
+import {
+  applyLocalApplicationAction,
+  localMemberPayments,
+  mergeAdminApplications,
+  mergeAdminMembers,
+} from "../../lib/localFallbackStore";
 import { currentPeriod } from "../../utils/format";
 import { AdminRegisterPanel } from "./components/AdminRegisterPanel";
 import { AdminRequestsPanel } from "./components/AdminRequestsPanel";
@@ -87,32 +93,34 @@ export function AdminDashboard({ token, onLogout }) {
     setAdmins(data);
   }
 
-  async function loadApplications(filter = applicationFilter) {
+  async function loadApplications(filter = applicationFilter, scopeAdmin = adminInfo) {
     const data = await api(`/api/admin/applications?status=${filter}`, { token });
-    setApplications(data);
+    const merged = mergeAdminApplications(data, filter, scopeAdmin);
+    setApplications(merged);
     if (selectedApp) {
-      const refreshed = data.find((item) => item.id === selectedApp.id);
+      const refreshed = merged.find((item) => item.id === selectedApp.id);
       setSelectedApp(refreshed || null);
     }
   }
 
-  async function loadApplicationSummary() {
+  async function loadApplicationSummary(scopeAdmin = adminInfo) {
     const data = await api("/api/admin/applications?status=TODOS", { token });
-    setAllApplications(data);
+    setAllApplications(mergeAdminApplications(data, "TODOS", scopeAdmin));
   }
 
-  async function loadMembers(filter = memberFilter) {
+  async function loadMembers(filter = memberFilter, scopeAdmin = adminInfo) {
     const data = await api(`/api/admin/members?status=${filter}`, { token });
-    setMembers(data);
+    const merged = mergeAdminMembers(data, filter, scopeAdmin);
+    setMembers(merged);
     if (selectedMember) {
-      const refreshed = data.find((item) => item.id === selectedMember.id);
+      const refreshed = merged.find((item) => item.id === selectedMember.id);
       if (refreshed) setSelectedMember(refreshed);
     }
   }
 
-  async function loadMemberSummary() {
+  async function loadMemberSummary(scopeAdmin = adminInfo) {
     const data = await api("/api/admin/members?status=TODOS", { token });
-    setAllMembers(data);
+    setAllMembers(mergeAdminMembers(data, "TODOS", scopeAdmin));
   }
 
   async function refreshMembersPanel() {
@@ -125,12 +133,16 @@ export function AdminDashboard({ token, onLogout }) {
   }
 
   async function refreshSelectedMember(memberId) {
-    const [memberList, payments] = await Promise.all([
-      api("/api/admin/members?status=TODOS", { token }),
-      api(`/api/admin/members/${memberId}/payments`, { token }),
-    ]);
+    const memberList = mergeAdminMembers(await api("/api/admin/members?status=TODOS", { token }), "TODOS", adminInfo);
+    let payments = [];
+    try {
+      payments = await api(`/api/admin/members/${memberId}/payments`, { token });
+    } catch (error) {
+      payments = localMemberPayments(memberId);
+      if (!payments.length) throw error;
+    }
     setAllMembers(memberList);
-    const refreshed = memberList.find((item) => Number(item.id) === Number(memberId));
+    const refreshed = memberList.find((item) => String(item.id) === String(memberId));
     if (refreshed) setSelectedMember(refreshed);
     setMemberPayments(payments);
     return refreshed;
@@ -143,9 +155,9 @@ export function AdminDashboard({ token, onLogout }) {
       const profile = await loadAdminProfile();
       if (profile?.role === "CAJERO") {
         setMemberFilter("INHABILITADO");
-        await Promise.all([loadApplications(), loadApplicationSummary(), loadMembers("INHABILITADO"), loadMemberSummary()]);
+        await Promise.all([loadApplications(applicationFilter, profile), loadApplicationSummary(profile), loadMembers("INHABILITADO", profile), loadMemberSummary(profile)]);
       } else {
-        await Promise.all([loadApplications(), loadApplicationSummary(), loadMembers(), loadMemberSummary(), loadAdminUsers()]);
+        await Promise.all([loadApplications(applicationFilter, profile), loadApplicationSummary(profile), loadMembers(memberFilter, profile), loadMemberSummary(profile), loadAdminUsers()]);
       }
     } catch (error) {
       if (/sesion vencida|token requerido|no autorizado/i.test(error.message)) {
@@ -213,12 +225,21 @@ export function AdminDashboard({ token, onLogout }) {
         token,
         body: { observations },
       });
+      applyLocalApplicationAction(selectedApp, action, observations, adminInfo);
       setObservations("");
       setSelectedApp(null);
       await loadAll();
       setMessage(result?.message || applicationActionMessage(action));
     } catch (error) {
-      setMessage(error.message);
+      if (/solicitud no encontrada/i.test(error.message)) {
+        applyLocalApplicationAction(selectedApp, action, observations, adminInfo);
+        setObservations("");
+        setSelectedApp(null);
+        await loadAll();
+        setMessage(applicationActionMessage(action));
+      } else {
+        setMessage(error.message);
+      }
     } finally {
       setApplicationActionLoading(false);
     }
@@ -230,7 +251,13 @@ export function AdminDashboard({ token, onLogout }) {
     setPaymentCount(1);
     setManualPaymentMethods(defaultPaymentMethods());
     try {
-      const data = await api(`/api/admin/members/${member.id}/payments`, { token });
+      let data = [];
+      try {
+        data = await api(`/api/admin/members/${member.id}/payments`, { token });
+      } catch (error) {
+        data = localMemberPayments(member.id);
+        if (!data.length) throw error;
+      }
       setMemberPayments(data);
     } catch (error) {
       setMessage(error.message);
