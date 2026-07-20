@@ -357,13 +357,14 @@ export function AdminDashboard({ token, onLogout }) {
   }
 
   async function deleteAdminAccess(admin) {
-    const confirmText = admin.disabled_at
-      ? `Eliminar definitivamente el acceso de ${admin.name}?`
-      : `${admin.name} aun esta habilitado. Se eliminara definitivamente el acceso. Continuar?`;
-    if (!window.confirm(confirmText)) return;
+    if (!admin.disabled_at) {
+      setMessage("Primero deshabilita el usuario antes de eliminarlo.");
+      return;
+    }
+    if (!window.confirm(`Eliminar definitivamente el acceso de ${admin.name}?`)) return;
     setMessage("");
     try {
-      await api(`/api/admin/admins/${admin.id}`, { method: "DELETE", token, body: { confirmed_disabled: true } });
+      await api(`/api/admin/admins/${admin.id}`, { method: "DELETE", token });
       if (Number(editingAdminId) === Number(admin.id)) cancelEditAdmin();
       await loadAdminUsers();
       setMessage("Usuario eliminado.");
