@@ -25,6 +25,7 @@ const ADMIN_NAV_ITEMS = [
   { keyName: "padron", icon: Banknote, label: "Caja y deudas", text: "Cobros y morosidad" },
   { keyName: "configuracion", icon: Settings, label: "Configuracion", text: "Admins" },
 ];
+const CASHIER_NAV_KEYS = ["padron", "configuracion"];
 
 const MONTHLY_AMOUNT = 2;
 const staleLocalKeys = ["cip_local_applications", "cip_local_members", "cip_local_payments"];
@@ -155,6 +156,7 @@ export function AdminDashboard({ token, onLogout }) {
       const profile = await loadAdminProfile();
       if (profile?.role === "CAJERO") {
         setMemberFilter("INHABILITADO");
+        setActiveModule((current) => (CASHIER_NAV_KEYS.includes(current) ? current : "padron"));
         await Promise.all([loadApplications(applicationFilter), loadApplicationSummary(), loadMembers("INHABILITADO"), loadMemberSummary()]);
       } else {
         await Promise.all([loadApplications(applicationFilter), loadApplicationSummary(), loadMembers(memberFilter), loadMemberSummary(), loadAdminUsers()]);
@@ -175,8 +177,8 @@ export function AdminDashboard({ token, onLogout }) {
   }, [token]);
 
   useEffect(() => {
-    if (adminInfo?.role === "CAJERO" && !["solicitudes", "detalle", "padron", "configuracion"].includes(activeModule)) {
-      setActiveModule("solicitudes");
+    if (adminInfo?.role === "CAJERO" && !CASHIER_NAV_KEYS.includes(activeModule)) {
+      setActiveModule("padron");
       setMemberFilter("INHABILITADO");
     }
   }, [adminInfo?.role, activeModule]);
@@ -526,6 +528,7 @@ export function AdminDashboard({ token, onLogout }) {
       applications: applicationSource,
       members: memberSource,
       openApplications: (status) => {
+        if (adminInfo?.role === "CAJERO") return;
         if (status === "PENDIENTE") {
           setActiveModule("solicitudes");
         } else {
@@ -539,7 +542,7 @@ export function AdminDashboard({ token, onLogout }) {
         setMessage("Los inhabilitados se calculan automaticamente por mensualidades vencidas.");
       },
     });
-  }, [allApplications, allMembers, applications, members]);
+  }, [adminInfo?.role, allApplications, allMembers, applications, members]);
 
   useEffect(() => {
     if (!adminInfo?.id) return;
@@ -569,6 +572,7 @@ export function AdminDashboard({ token, onLogout }) {
   }, [allApplications, adminInfo?.id]);
 
   function selectApplication(application) {
+    if (adminInfo?.role === "CAJERO") return;
     setSelectedApp(application);
     setObservations(application.observations || "");
     setActiveModule("detalle");
@@ -580,7 +584,10 @@ export function AdminDashboard({ token, onLogout }) {
       title="Control de colegiación"
       subtitle="Revise expedientes, apruebe solicitudes y controle pagos mensuales desde un solo tablero."
       activeKey={activeModule}
-      onSelect={setActiveModule}
+      onSelect={(key) => {
+        if (adminInfo?.role === "CAJERO" && !CASHIER_NAV_KEYS.includes(key)) return;
+        setActiveModule(key);
+      }}
       onLogout={onLogout}
       notifications={adminNotifications}
       notificationScope="admin"
@@ -589,13 +596,13 @@ export function AdminDashboard({ token, onLogout }) {
           compact
           name={adminInfo?.name || "Administrador CIP"}
           subtitle={adminInfo?.email || "Consejo Nacional"}
-          detail={`${stats.pending} solicitudes pendientes`}
+          detail={adminInfo?.role === "CAJERO" ? `${stats.disabled} colegiados inhabilitados` : `${stats.pending} solicitudes pendientes`}
         />
       }
-      navItems={adminInfo?.role === "CAJERO" ? ADMIN_NAV_ITEMS.filter((item) => ["solicitudes", "detalle", "padron", "configuracion"].includes(item.keyName)) : ADMIN_NAV_ITEMS}
-      summary={[
-        { icon: ListChecks, label: "Solicitudes pendientes", value: pendingApplications.length },
-      ]}
+      navItems={adminInfo?.role === "CAJERO" ? ADMIN_NAV_ITEMS.filter((item) => CASHIER_NAV_KEYS.includes(item.keyName)) : ADMIN_NAV_ITEMS}
+      summary={adminInfo?.role === "CAJERO"
+        ? [{ icon: Banknote, label: "Colegiaturas vencidas", value: stats.disabled }]
+        : [{ icon: ListChecks, label: "Solicitudes pendientes", value: pendingApplications.length }]}
     >
       {message && <div className="banner">{message}</div>}
       {loading && <div className="loading">Cargando panel...</div>}
