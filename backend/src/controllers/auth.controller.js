@@ -9,6 +9,7 @@ const { sendPasswordResetCodeEmail } = require("../services/mail.service");
 const {
   requestAdminPasswordReset,
   resetAdminPassword,
+  verifyAdminResetCode,
 } = require("../services/password-reset.service");
 const { normalizeDni } = require("../utils/text");
 
@@ -112,6 +113,15 @@ async function requestAdminPasswordResetController(req, res) {
   res.json(result);
 }
 
+async function verifyAdminResetCodeController(req, res) {
+  const result = await verifyAdminResetCode({
+    email: req.body.email,
+    code: req.body.code,
+    findAdminByEmail: (email) => findAdminByEmailForRequest(req, email),
+  });
+  res.json(result);
+}
+
 async function resetAdminPasswordController(req, res) {
   const result = await resetAdminPassword({
     email: req.body.email,
@@ -128,5 +138,6 @@ module.exports = {
   getDni,
   loginAdmin,
   requestAdminPasswordReset: requestAdminPasswordResetController,
+  verifyAdminResetCode: verifyAdminResetCodeController,
   resetAdminPassword: resetAdminPasswordController,
 };

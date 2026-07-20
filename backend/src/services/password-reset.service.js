@@ -49,10 +49,42 @@ async function requestAdminPasswordReset({ email, findAdminByEmail, sendEmail, n
     adminId: admin.id,
     codeHash: hashCode(code),
     expiresAt: now.getTime() + RESET_TTL_MINUTES * 60 * 1000,
+    verifiedAt: null,
   };
   await sendEmail({ email: normalizedEmail, fullName: admin.name || "administrador", code });
   resetCodes.set(normalizedEmail, record);
   return { message: "Codigo enviado al correo registrado.", expires_in_minutes: RESET_TTL_MINUTES };
+}
+
+async function verifyAdminResetCode({
+  email,
+  code,
+  findAdminByEmail,
+  now = new Date(),
+}) {
+  const normalizedEmail = normalizeEmail(email);
+  const admin = await findAdminByEmail(normalizedEmail);
+  const record = resetCodes.get(normalizedEmail);
+  if (!admin || !record || Number(record.adminId) !== Number(admin.id)) {
+    const error = new Error("Solicita un codigo valido antes de continuar.");
+    error.statusCode = 422;
+    throw error;
+  }
+  if (record.expiresAt < now.getTime()) {
+    resetCodes.delete(normalizedEmail);
+    const error = new Error("El codigo vencio. Solicita uno nuevo.");
+    error.statusCode = 422;
+    throw error;
+  }
+  if (record.codeHash !== hashCode(code)) {
+    const error = new Error("El codigo ingresado no es valido.");
+    error.statusCode = 422;
+    throw error;
+  }
+
+  record.verifiedAt = now.getTime();
+  resetCodes.set(normalizedEmail, record);
+  return { message: "Codigo validado. Ingresa tu nueva clave." };
 }
 
 async function resetAdminPassword({
@@ -85,6 +117,11 @@ async function resetAdminPassword({
     error.statusCode = 422;
     throw error;
   }
+  if (!record.verifiedAt) {
+    const error = new Error("Primero valida el codigo antes de cambiar la clave.");
+    error.statusCode = 422;
+    throw error;
+  }
 
   const passwordHash = await bcrypt.hash(password, 10);
   await updatePasswordHash(admin, passwordHash);
@@ -101,4 +138,5 @@ module.exports = {
   clearResetCodes,
   requestAdminPasswordReset,
   resetAdminPassword,
+  verifyAdminResetCode,
 };

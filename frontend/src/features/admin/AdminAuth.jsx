@@ -43,8 +43,26 @@ export function AdminAuth({ onAuthenticated }) {
         method: "POST",
         body: { email },
       });
-      setMode("reset");
+      setMode("verify");
       setMessage(data.message || "Codigo enviado al correo registrado.");
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verifyResetCode(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage("");
+    try {
+      const data = await api("/api/admin/password/verify", {
+        method: "POST",
+        body: { email, code: resetCode },
+      });
+      setMode("reset");
+      setMessage(data.message || "Codigo validado. Ingresa tu nueva clave.");
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -103,6 +121,34 @@ export function AdminAuth({ onAuthenticated }) {
     );
   }
 
+  if (mode === "verify") {
+    return (
+      <form className="stack" onSubmit={verifyResetCode}>
+        <div className="section-title compact-title">
+          <div>
+            <span>Verificacion</span>
+            <h2>Validar codigo</h2>
+          </div>
+        </div>
+        <label>
+          Correo registrado
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required />
+        </label>
+        <label>
+          Codigo recibido
+          <input value={resetCode} onChange={(event) => setResetCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" required />
+        </label>
+        {message && <p className="notice">{message}</p>}
+        <Button icon={KeyRound} disabled={loading || resetCode.length !== 6}>
+          {loading ? "Validando..." : "Validar codigo"}
+        </Button>
+        <button type="button" className="link-button" onClick={() => setMode("forgot")}>
+          Enviar otro codigo
+        </button>
+      </form>
+    );
+  }
+
   if (mode === "reset") {
     return (
       <form className="stack" onSubmit={resetPassword}>
@@ -114,11 +160,11 @@ export function AdminAuth({ onAuthenticated }) {
         </div>
         <label>
           Correo registrado
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required />
+          <input type="email" value={email} readOnly autoComplete="username" required />
         </label>
         <label>
-          Codigo recibido
-          <input value={resetCode} onChange={(event) => setResetCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" required />
+          Codigo validado
+          <input value={resetCode} readOnly inputMode="numeric" required />
         </label>
         <label>
           Nueva clave

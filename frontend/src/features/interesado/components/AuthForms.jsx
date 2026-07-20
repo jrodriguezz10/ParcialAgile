@@ -61,8 +61,29 @@ export function LoginAuth({ onAdminAuthenticated }) {
         method: "POST",
         body: { email: normalizedEmail },
       });
-      setMode("reset");
+      setMode("verify");
       setMessage(data.message || "Codigo enviado al correo registrado.");
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verifyResetCode(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage("");
+    try {
+      const data = await api("/api/admin/password/verify", {
+        method: "POST",
+        body: {
+          email: email.trim().toLowerCase(),
+          code: resetCode,
+        },
+      });
+      setMode("reset");
+      setMessage(data.message || "Codigo validado. Ingresa tu nueva clave.");
     } catch (error) {
       setMessage(error.message);
     } finally {
@@ -126,10 +147,10 @@ export function LoginAuth({ onAdminAuthenticated }) {
     );
   }
 
-  if (mode === "reset") {
+  if (mode === "verify") {
     return (
-      <form className="stack" onSubmit={resetPassword}>
-        <h2 className="auth-form-title" style={{ textAlign: "center" }}>Nueva clave</h2>
+      <form className="stack" onSubmit={verifyResetCode}>
+        <h2 className="auth-form-title" style={{ textAlign: "center" }}>Validar codigo</h2>
 
         <label>
           Correo registrado
@@ -138,6 +159,30 @@ export function LoginAuth({ onAdminAuthenticated }) {
         <label>
           Codigo
           <input value={resetCode} onChange={(event) => setResetCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" required />
+        </label>
+        {message && <p className="notice">{message}</p>}
+        <Button icon={KeyRound} disabled={loading || resetCode.length !== 6}>
+          {loading ? "Validando..." : "Validar codigo"}
+        </Button>
+        <button type="button" className="link-button login-reset-link" onClick={() => setMode("forgot")}>
+          Enviar otro codigo
+        </button>
+      </form>
+    );
+  }
+
+  if (mode === "reset") {
+    return (
+      <form className="stack" onSubmit={resetPassword}>
+        <h2 className="auth-form-title" style={{ textAlign: "center" }}>Nueva clave</h2>
+
+        <label>
+          Correo registrado
+          <input type="email" value={email} readOnly autoComplete="username" required />
+        </label>
+        <label>
+          Codigo validado
+          <input value={resetCode} readOnly inputMode="numeric" required />
         </label>
         <label>
           Nueva clave
