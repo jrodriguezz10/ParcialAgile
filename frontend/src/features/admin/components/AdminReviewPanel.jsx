@@ -15,6 +15,7 @@ export function AdminReviewPanel({
   onCloseSelection,
   onAction,
   canReview = true,
+  actionLoading = false,
 }) {
   const [query, setQuery] = useState("");
 
@@ -125,13 +126,13 @@ export function AdminReviewPanel({
           </label>
 
           <div className="button-row">
-            <Button icon={Check} onClick={() => onAction("approve")} disabled={!canReview || selectedApp.status === "APROBADO"}>
-              Aprobar
+            <Button icon={Check} onClick={() => onAction("approve")} disabled={actionLoading || !canReview || selectedApp.status === "APROBADO"}>
+              {actionLoading ? "Procesando..." : "Aprobar"}
             </Button>
-            <Button icon={AlertTriangle} variant="secondary" onClick={() => onAction("observe")} disabled={!canReview || selectedApp.status === "APROBADO"}>
+            <Button icon={AlertTriangle} variant="secondary" onClick={() => onAction("observe")} disabled={actionLoading || !canReview || selectedApp.status === "APROBADO"}>
               Observar
             </Button>
-            <Button icon={X} variant="danger" onClick={() => onAction("reject")} disabled={!canReview || selectedApp.status === "APROBADO"}>
+            <Button icon={X} variant="danger" onClick={() => onAction("reject")} disabled={actionLoading || !canReview || selectedApp.status === "APROBADO"}>
               Rechazar
             </Button>
           </div>

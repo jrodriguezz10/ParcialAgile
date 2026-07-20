@@ -60,6 +60,7 @@ export function AdminDashboard({ token, onLogout }) {
   const [createdMember, setCreatedMember] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [applicationActionLoading, setApplicationActionLoading] = useState(false);
   const [activeModule, setActiveModule] = useState("solicitudes");
   const createdCardRef = useRef(null);
   const memberCardRef = useRef(null);
@@ -203,19 +204,23 @@ export function AdminDashboard({ token, onLogout }) {
   }, [memberFilter, token]);
 
   async function actOnApplication(action) {
-    if (!selectedApp) return;
+    if (!selectedApp || applicationActionLoading) return;
     setMessage("");
+    setApplicationActionLoading(true);
     try {
-      await api(`/api/admin/applications/${selectedApp.id}/${action}`, {
+      const result = await api(`/api/admin/applications/${selectedApp.id}/${action}`, {
         method: "POST",
         token,
         body: { observations },
       });
       setObservations("");
+      setSelectedApp(null);
       await loadAll();
-      setMessage("Solicitud actualizada.");
+      setMessage(result?.message || applicationActionMessage(action));
     } catch (error) {
       setMessage(error.message);
+    } finally {
+      setApplicationActionLoading(false);
     }
   }
 
@@ -598,6 +603,7 @@ export function AdminDashboard({ token, onLogout }) {
           }}
           onAction={actOnApplication}
           canReview={adminInfo?.role !== "CAJERO"}
+          actionLoading={applicationActionLoading}
         />
       </div>
 
@@ -668,6 +674,13 @@ function applicationTimestamp(application) {
   const timestamp = rawDate ? Date.parse(rawDate) : Number.NaN;
   if (Number.isFinite(timestamp)) return timestamp;
   return Number(application.id) || 0;
+}
+
+function applicationActionMessage(action) {
+  if (action === "approve") return "Solicitud aprobada y carnet generado.";
+  if (action === "observe") return "Solicitud observada. El colegiado podra corregir sus datos sin pagar otra vez.";
+  if (action === "reject") return "Solicitud rechazada.";
+  return "Solicitud actualizada.";
 }
 
 function readStoredPendingNotifications(key) {
