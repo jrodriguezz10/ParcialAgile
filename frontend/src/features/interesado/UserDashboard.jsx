@@ -113,16 +113,15 @@ export function UserDashboard({ token, onLogout }) {
       setMessage("Usa un correo valido.");
       return;
     }
-    const mustReplaceDocuments = application?.status === "OBSERVADO" || application?.status === "RECHAZADO";
-    if (!files.photo && (mustReplaceDocuments || !application?.photo_url)) {
+    if (!files.photo && !application?.photo_url) {
       setMessage("Adjunta la foto tipo carnet.");
       return;
     }
-    if (!files.degreePdf && (mustReplaceDocuments || !application?.degree_pdf_url)) {
+    if (!files.degreePdf && !application?.degree_pdf_url) {
       setMessage("Adjunta el titulo profesional en PDF.");
       return;
     }
-    if (!files.receipt && (mustReplaceDocuments || !application?.receipt_url)) {
+    if (!files.receipt && !application?.receipt_url) {
       setMessage("Adjunta el comprobante de pago.");
       return;
     }

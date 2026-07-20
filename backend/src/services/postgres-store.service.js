@@ -272,20 +272,6 @@ async function getApplication(id) {
 
 async function normalizeNonApprovedApplicationFiles() {
   const applications = await getCollection("applications");
-  let changed = false;
-  for (const application of applications) {
-    if (
-      (application.status === "OBSERVADO" || application.status === "RECHAZADO") &&
-      (application.photo_path || application.degree_pdf_path || application.receipt_path)
-    ) {
-      application.photo_path = null;
-      application.degree_pdf_path = null;
-      application.receipt_path = null;
-      application.updated_at = new Date().toISOString().slice(0, 19).replace("T", " ");
-      changed = true;
-    }
-  }
-  if (changed) await setCollection("applications", applications);
   return applications;
 }
 
@@ -306,7 +292,6 @@ async function setApplicationStatus(id, status, observations = null, adminId = n
   const applications = await getCollection("applications");
   const index = applications.findIndex((item) => Number(item.id) === Number(id));
   if (index === -1) return null;
-  const clearDocs = status === "OBSERVADO" || status === "RECHAZADO";
   applications[index] = {
     ...applications[index],
     status,
@@ -314,7 +299,6 @@ async function setApplicationStatus(id, status, observations = null, adminId = n
     reviewed_at: new Date().toISOString().slice(0, 19).replace("T", " "),
     reviewed_by: adminId,
     updated_at: new Date().toISOString().slice(0, 19).replace("T", " "),
-    ...(clearDocs ? { photo_path: null, degree_pdf_path: null, receipt_path: null } : {}),
   };
   await setCollection("applications", applications);
   return applications[index];
@@ -584,9 +568,9 @@ async function createPublicApplication({ body, files }) {
 
   if (existing) {
     existing.status = "PENDIENTE";
-    existing.photo_path = files.photo || null;
-    existing.degree_pdf_path = files.degreePdf || null;
-    existing.receipt_path = files.receipt || null;
+    existing.photo_path = files.photo || existing.photo_path || null;
+    existing.degree_pdf_path = files.degreePdf || existing.degree_pdf_path || null;
+    existing.receipt_path = files.receipt || existing.receipt_path || null;
     existing.observations = null;
     existing.submitted_at = now;
     existing.reviewed_at = null;

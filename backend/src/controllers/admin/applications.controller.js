@@ -185,8 +185,7 @@ async function observeApplication(req, res) {
   }
   await getPool().query(
     `UPDATE applications
-     SET status = 'OBSERVADO', observations = ?, photo_path = NULL, degree_pdf_path = NULL, receipt_path = NULL,
-         reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
+     SET status = 'OBSERVADO', observations = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
      WHERE id = ?`,
     [observations, req.auth.sub, req.params.id]
   );
@@ -226,8 +225,7 @@ async function rejectApplication(req, res) {
   }
   await getPool().query(
     `UPDATE applications
-     SET status = 'RECHAZADO', observations = ?, photo_path = NULL, degree_pdf_path = NULL, receipt_path = NULL,
-         reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
+     SET status = 'RECHAZADO', observations = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
      WHERE id = ?`,
     [observations || "Solicitud rechazada por el Colegio.", req.auth.sub, req.params.id]
   );

@@ -209,7 +209,14 @@ async function submitApplication(req, res) {
     const photoPath = fileDataUrl(req.files?.photo?.[0]);
     const degreePdfPath = fileDataUrl(req.files?.degreePdf?.[0]);
     const receiptPath = fileDataUrl(req.files?.receipt?.[0]);
-    if (!photoPath || !degreePdfPath || !receiptPath) {
+    const existingApplication = snapshot
+      .listApplications("TODOS")
+      .find((item) => String(item.user_id) === String(req.auth.sub) || item.dni === dni);
+    if (
+      !(photoPath || existingApplication?.photo_path) ||
+      !(degreePdfPath || existingApplication?.degree_pdf_path) ||
+      !(receiptPath || existingApplication?.receipt_path)
+    ) {
       return res.status(422).json({
         message: "Debes adjuntar foto, titulo profesional en PDF y recibo de inscripcion.",
       });

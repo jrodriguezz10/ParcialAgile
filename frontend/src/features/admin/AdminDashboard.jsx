@@ -518,25 +518,31 @@ export function AdminDashboard({ token, onLogout }) {
   }, [allApplications, allMembers, applications, members]);
 
   useEffect(() => {
+    if (!adminInfo?.id) return;
     const pendingIds = allApplications
       .filter((item) => item.status === "PENDIENTE")
-      .map((item) => String(item.id))
+      .map((item) => `${item.id}:${item.submitted_at || item.updated_at || ""}`)
       .sort()
-      .join(",");
+      .filter(Boolean);
+    const notifiedKey = `cip_admin_pending_notified:${adminInfo.id}`;
     if (!notificationsReadyRef.current) {
-      pendingSignatureRef.current = pendingIds;
+      pendingSignatureRef.current = pendingIds.join(",");
+      writeStoredPendingNotifications(notifiedKey, [
+        ...readStoredPendingNotifications(notifiedKey),
+        ...pendingIds,
+      ]);
       notificationsReadyRef.current = true;
       return;
     }
-    const previous = pendingSignatureRef.current ? pendingSignatureRef.current.split(",").filter(Boolean) : [];
-    const current = pendingIds ? pendingIds.split(",").filter(Boolean) : [];
-    const hasNew = current.some((id) => !previous.includes(id));
-    pendingSignatureRef.current = pendingIds;
-    if (hasNew) {
+    const alreadyNotified = readStoredPendingNotifications(notifiedKey);
+    const newPending = pendingIds.filter((id) => !alreadyNotified.includes(id));
+    pendingSignatureRef.current = pendingIds.join(",");
+    if (newPending.length) {
+      writeStoredPendingNotifications(notifiedKey, [...alreadyNotified, ...newPending]);
       playAdminNotificationSound();
       showAdminBrowserNotification();
     }
-  }, [allApplications]);
+  }, [allApplications, adminInfo?.id]);
 
   function selectApplication(application) {
     setSelectedApp(application);
@@ -662,6 +668,23 @@ function applicationTimestamp(application) {
   const timestamp = rawDate ? Date.parse(rawDate) : Number.NaN;
   if (Number.isFinite(timestamp)) return timestamp;
   return Number(application.id) || 0;
+}
+
+function readStoredPendingNotifications(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredPendingNotifications(key, values) {
+  try {
+    localStorage.setItem(key, JSON.stringify(Array.from(new Set(values)).slice(-200)));
+  } catch {
+    // Si el navegador bloquea storage, solo se evita persistir la marca sonora.
+  }
 }
 
 function onlyPhoneDigits(value) {

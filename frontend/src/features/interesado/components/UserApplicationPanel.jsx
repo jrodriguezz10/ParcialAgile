@@ -21,8 +21,8 @@ export function UserApplicationPanel({
   onlyDniDigits,
 }) {
   const hasApplication = Boolean(application);
-  const mustReplaceDocuments = application?.status === "OBSERVADO" || application?.status === "RECHAZADO";
-  const canEditApplication = !hasApplication ? unlocked : mustReplaceDocuments;
+  const canResubmitApplication = application?.status === "OBSERVADO" || application?.status === "RECHAZADO";
+  const canEditApplication = !hasApplication ? unlocked : canResubmitApplication;
   const shouldShowStart = !hasApplication && lookupMessage && !unlocked;
   const fieldsDisabled = !canEditApplication;
   const hasRequiredInfo = Boolean(
@@ -33,9 +33,9 @@ export function UserApplicationPanel({
       form.branch
   );
   const hasRequiredFiles = Boolean(
-    (files.photo || (!mustReplaceDocuments && application?.photo_url)) &&
-      (files.degreePdf || (!mustReplaceDocuments && application?.degree_pdf_url)) &&
-      (files.receipt || (!mustReplaceDocuments && application?.receipt_url))
+    (files.photo || application?.photo_url) &&
+      (files.degreePdf || application?.degree_pdf_url) &&
+      (files.receipt || application?.receipt_url)
   );
 
   return (
@@ -67,6 +67,12 @@ export function UserApplicationPanel({
           <div className="info-banner">
             <AlertTriangle size={18} />
             <span>Antes de enviar, realiza el pago de inscripcion de S/ 2.00 con Mercado Pago y adjunta el comprobante.</span>
+          </div>
+        )}
+        {canResubmitApplication && (
+          <div className="info-banner">
+            <AlertTriangle size={18} />
+            <span>Corrige la informacion observada y vuelve a enviar. No necesitas pagar otra vez si el comprobante ya fue adjuntado.</span>
           </div>
         )}
         {!hasApplication && (
@@ -118,7 +124,7 @@ export function UserApplicationPanel({
             icon={Camera}
             label="Foto tipo carnet"
             accept="image/png,image/jpeg,image/webp"
-            existing={mustReplaceDocuments ? null : application?.photo_url}
+            existing={application?.photo_url}
             disabled={fieldsDisabled}
             onChange={(file) => onFilesChange({ ...files, photo: file })}
           />
@@ -126,7 +132,7 @@ export function UserApplicationPanel({
             icon={FileText}
             label="Titulo profesional PDF"
             accept="application/pdf"
-            existing={mustReplaceDocuments ? null : application?.degree_pdf_url}
+            existing={application?.degree_pdf_url}
             disabled={fieldsDisabled}
             onChange={(file) => onFilesChange({ ...files, degreePdf: file })}
           />
@@ -134,7 +140,7 @@ export function UserApplicationPanel({
             icon={ReceiptText}
             label="Comprobante de pago"
             accept="application/pdf,image/png,image/jpeg,image/webp"
-            existing={mustReplaceDocuments ? null : application?.receipt_url}
+            existing={application?.receipt_url}
             disabled={fieldsDisabled}
             onChange={(file) => onFilesChange({ ...files, receipt: file })}
           />
@@ -147,7 +153,7 @@ export function UserApplicationPanel({
             </Button>
           ) : (
             <Button icon={Upload} disabled={!canEditApplication || !hasRequiredInfo || !hasRequiredFiles || application?.status === "APROBADO"}>
-              {hasRequiredInfo && hasRequiredFiles ? "Enviar solicitud" : "Completa todos los campos"}
+              {hasRequiredInfo && hasRequiredFiles ? (canResubmitApplication ? "Reenviar correccion" : "Enviar solicitud") : "Completa todos los campos"}
             </Button>
           )}
         </div>

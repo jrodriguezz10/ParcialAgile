@@ -192,9 +192,9 @@ function createPublicApplication({ body, files }) {
   if (existing) {
     Object.assign(existing, {
       status: "PENDIENTE",
-      photo_path: files.photo,
-      degree_pdf_path: files.degreePdf,
-      receipt_path: files.receipt,
+      photo_path: files.photo || existing.photo_path || null,
+      degree_pdf_path: files.degreePdf || existing.degree_pdf_path || null,
+      receipt_path: files.receipt || existing.receipt_path || null,
       observations: null,
       submitted_at: now,
       reviewed_at: null,
