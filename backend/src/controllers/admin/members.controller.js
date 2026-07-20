@@ -271,11 +271,18 @@ async function listMembers(req, res) {
         })(),
       })));
     }
-    return res.json(snapshot.listMembers(status).map((row) => ({
-      ...row,
-      verify_url: `${frontendUrl(req)}/verificar/${row.verification_code}`,
-      photo_url: fileUrl(req, row.photo_path),
-    })));
+    const applications = snapshot.listApplications("TODOS");
+    return res.json(snapshot.listMembers(status).filter((row) => canAccessBranch(req, row.branch)).map((row) => {
+      const application = applications.find((item) => Number(item.id) === Number(row.application_id) || String(item.user_id) === String(row.user_id));
+      return {
+        ...row,
+        verify_url: `${frontendUrl(req)}/verificar/${row.verification_code}`,
+        photo_url:
+          application?.id && /^(data:|kvfile:)/i.test(application.photo_path || "")
+            ? `${req.protocol}://${req.get("host")}/api/public/applications/${application.id}/files/photo`
+            : fileUrl(req, application?.photo_path || row.photo_path),
+      };
+    }));
   }
 
   const pool = getPool();

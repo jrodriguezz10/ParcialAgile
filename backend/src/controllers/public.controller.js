@@ -4,6 +4,7 @@ const { fileDataUrl, fileUrl, frontendUrl, shouldStoreUploadsInDatabase, storedP
 const { refreshMemberStatus } = require("../services/members.service");
 const { consultDniApi } = require("../services/reniec.service");
 const { isValidEmail, normalizeDni } = require("../utils/text");
+const { isValidEngineeringCareer } = require("../constants/catalogs");
 const { signToken } = require("../middleware/auth");
 const kv = require("../services/kv.service");
 const pgStore = require("../services/postgres-store.service");
@@ -230,6 +231,9 @@ async function submitPublicApplication(req, res) {
   if (!fullName || !email || !profession) {
     return res.status(422).json({ message: "Completa nombres, correo y profesion." });
   }
+  if (!isValidEngineeringCareer(profession)) {
+    return res.status(422).json({ message: "Selecciona una profesion valida de la lista." });
+  }
   if (phone && !/^9\d{8}$/.test(phone)) {
     return res.status(422).json({ message: "Si ingresas celular, debe tener 9 digitos." });
   }
@@ -281,6 +285,7 @@ async function submitPublicApplication(req, res) {
         maternal_last_name: identity.maternal_last_name,
         email,
         profession,
+        branch,
       },
       files: { photo: photoPath, degreePdf: degreePdfPath, receipt: receiptPath },
     });

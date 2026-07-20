@@ -12,6 +12,7 @@ import { UserPaymentsPanel } from "./components/UserPaymentsPanel";
 import { buildUserNotifications } from "./notifications";
 
 const emailPattern = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
+const draftKey = "cip_application_draft";
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(String(email || "").trim());
@@ -61,7 +62,8 @@ export function UserDashboard({ token, onLogout }) {
       const loadedUser = { ...blankProfile, ...me.user };
       if (/^pendiente$/i.test(String(loadedUser.profession || "").trim())) loadedUser.profession = "";
       if (/^[0-9]{8}@pendiente\.cip\.local$/i.test(String(loadedUser.email || ""))) loadedUser.email = "";
-      setForm(loadedUser);
+      const savedDraft = readApplicationDraft();
+      setForm(!me.application && savedDraft ? { ...loadedUser, ...savedDraft, dni: savedDraft.dni || loadedUser.dni } : loadedUser);
       setApplicationUnlocked(!me.application);
       setApplicationLookupMessage("");
       setPeriod(me.current_period || currentPeriod());
@@ -86,7 +88,11 @@ export function UserDashboard({ token, onLogout }) {
       setApplicationUnlocked(false);
       setApplicationLookupMessage("");
     }
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      if (!application) saveApplicationDraft(next);
+      return next;
+    });
   };
 
   async function submitApplication(event) {
@@ -140,6 +146,7 @@ export function UserDashboard({ token, onLogout }) {
         form: true,
       });
       setBundle(data);
+      clearApplicationDraft();
       setFiles({ photo: null, degreePdf: null, receipt: null });
       setMessage("Solicitud enviada al Colegio de Ingenieros.");
       await load();
@@ -177,13 +184,15 @@ export function UserDashboard({ token, onLogout }) {
       return;
     }
     try {
+      saveApplicationDraft(form);
       const data = await api("/api/me/payments/inscription", {
         method: "POST",
         token,
         body: { dni, full_name: fullName, email },
       });
       if (data.checkout_url) {
-        window.location.href = data.checkout_url;
+        window.open(data.checkout_url, "_blank", "noopener,noreferrer");
+        setMessage("Pago abierto en otra pestaña. Al terminar, vuelve aqui, adjunta el comprobante y envia la solicitud.");
         return;
       }
       setMessage(data.message || "Mercado Pago no esta configurado. Adjunta tu comprobante de pago para continuar.");
@@ -341,4 +350,29 @@ export function UserDashboard({ token, onLogout }) {
       />
     </DashboardShell>
   );
+}
+
+function readApplicationDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(draftKey) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function saveApplicationDraft(form) {
+  try {
+    const { dni, full_name, first_name, paternal_last_name, maternal_last_name, email, phone, profession, branch } = form || {};
+    localStorage.setItem(draftKey, JSON.stringify({ dni, full_name, first_name, paternal_last_name, maternal_last_name, email, phone, profession, branch }));
+  } catch {
+    // Si el navegador bloquea storage, el formulario sigue funcionando en memoria.
+  }
+}
+
+function clearApplicationDraft() {
+  try {
+    localStorage.removeItem(draftKey);
+  } catch {
+    // No hace falta interrumpir el envio por limpieza local.
+  }
 }
