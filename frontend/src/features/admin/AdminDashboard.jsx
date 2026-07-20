@@ -155,9 +155,12 @@ export function AdminDashboard({ token, onLogout }) {
       clearStaleLocalFallback();
       const profile = await loadAdminProfile();
       if (profile?.role === "CAJERO") {
+        setApplications([]);
+        setAllApplications([]);
+        setSelectedApp(null);
         setMemberFilter("INHABILITADO");
         setActiveModule((current) => (CASHIER_NAV_KEYS.includes(current) ? current : "padron"));
-        await Promise.all([loadApplications(applicationFilter), loadApplicationSummary(), loadMembers("INHABILITADO"), loadMemberSummary()]);
+        await Promise.all([loadMembers("INHABILITADO"), loadMemberSummary()]);
       } else {
         await Promise.all([loadApplications(applicationFilter), loadApplicationSummary(), loadMembers(memberFilter), loadMemberSummary(), loadAdminUsers()]);
       }
@@ -203,12 +206,9 @@ export function AdminDashboard({ token, onLogout }) {
   useEffect(() => {
     if (!adminInfo) return undefined;
     const timer = window.setInterval(() => {
-      const refreshes = [
-        loadApplications(applicationFilter),
-        loadApplicationSummary(),
-        loadMembers(memberFilter),
-        loadMemberSummary(),
-      ];
+      const refreshes = adminInfo?.role === "CAJERO"
+        ? [loadMembers(memberFilter), loadMemberSummary()]
+        : [loadApplications(applicationFilter), loadApplicationSummary(), loadMembers(memberFilter), loadMemberSummary()];
       if (selectedMember?.id) refreshes.push(refreshSelectedMember(selectedMember.id));
       Promise.all(refreshes).catch((error) => setMessage(error.message));
     }, 15000);

@@ -5,6 +5,7 @@ const { refreshAllMemberStatuses, refreshMemberStatus } = require("../../service
 const { createExternalReference, createMercadoPagoPreference } = require("../../services/payments.service");
 const { currentPeriod, effectiveEnrollmentPeriod, isValidPeriod, periodsBetween, previousPeriod } = require("../../utils/dates");
 const { fileDataUrl, fileUrl, frontendUrl } = require("../../utils/files");
+const { inAdminBranch, scopedBranch } = require("../../utils/admin-scope");
 const { isValidEmail, normalizeDni } = require("../../utils/text");
 const snapshot = require("../../services/snapshot.service");
 const kv = require("../../services/kv.service");
@@ -23,13 +24,8 @@ function withDebt(member, payments) {
   return { ...member, pending_periods: pendingPeriods, debt_count: pendingPeriods.length, debt_amount: pendingPeriods.length * 2 };
 }
 
-function canAccessBranch(req, branch) {
-  const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
-  return adminBranch === "Consejo Nacional - Lima" || (branch || "Consejo Nacional - Lima") === adminBranch;
-}
-
 function assertBranchAccess(req, member) {
-  if (!canAccessBranch(req, member?.branch)) {
+  if (!inAdminBranch(req, member)) {
     const error = new Error("Colegiado no encontrado en tu sede.");
     error.statusCode = 404;
     throw error;
@@ -50,6 +46,7 @@ async function createManualMember(req, res) {
     files: req.files,
     adminId: req.auth.sub,
     adminBranch: req.admin?.branch,
+    adminRole: req.admin?.role,
     req,
   });
   res.status(201).json(created);
@@ -183,8 +180,9 @@ async function createKvManualMember(req) {
   if (!["EFECTIVO", "YAPE", "PLIN", "TARJETA", "TRANSFERENCIA", "MIXTO", "MERCADO_PAGO"].includes(paymentMethod)) throw validationError("Selecciona un metodo de pago valido.");
   if (paymentMethod !== "MERCADO_PAGO" && !receiptData) throw validationError("Sube la imagen o PDF del comprobante de pago.");
 
+  const branch = scopedBranch(req, String(req.body.branch || "Consejo Nacional - Lima").trim());
   const { application } = await kv.createPublicApplication({
-    body: { dni, full_name: fullName, email, phone, profession, branch: String(req.body.branch || "Consejo Nacional - Lima") },
+    body: { dni, full_name: fullName, email, phone, profession, branch },
     files,
   });
   const member = await kv.approveApplication(
@@ -255,9 +253,7 @@ async function listMembers(req, res) {
     if (kv.enabled() || pgStore.enabled()) {
       const applications = await store().listApplications("TODOS");
       const currentAdmin = req.admin || await store().getAdmin(req.auth.sub);
-      const scopedMembers = (await store().listMembers(status)).filter((row) =>
-        !currentAdmin?.branch || currentAdmin.branch === "Consejo Nacional - Lima" || (row.branch || "Consejo Nacional - Lima") === currentAdmin.branch
-      );
+      const scopedMembers = (await store().listMembers(status)).filter((row) => inAdminBranch({ admin: currentAdmin }, row));
       const decorated = await Promise.all(scopedMembers.map(async (row) => withDebt(row, await store().listMemberPayments(row.id))));
       return res.json(decorated.map((row) => ({
         ...row,
@@ -272,7 +268,7 @@ async function listMembers(req, res) {
       })));
     }
     const applications = snapshot.listApplications("TODOS");
-    return res.json(snapshot.listMembers(status).filter((row) => canAccessBranch(req, row.branch)).map((row) => {
+    return res.json(snapshot.listMembers(status).filter((row) => inAdminBranch(req, row)).map((row) => {
       const application = applications.find((item) => Number(item.id) === Number(row.application_id) || String(item.user_id) === String(row.user_id));
       return {
         ...row,
@@ -313,7 +309,7 @@ async function listMembers(req, res) {
      ORDER BY m.created_at DESC`,
     params
   );
-  const scopedRows = rows.filter((row) => canAccessBranch(req, row.branch));
+  const scopedRows = rows.filter((row) => inAdminBranch(req, row));
   const decorated = await Promise.all(scopedRows.map(async (row) => {
     const [payments] = await pool.query("SELECT period_month, payment_type, status FROM payments WHERE member_id = ?", [row.id]);
     return withDebt(row, payments);

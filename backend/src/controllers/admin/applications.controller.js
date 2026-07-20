@@ -3,18 +3,13 @@ const { createMemberForApprovedApplication, refreshMemberStatus } = require("../
 const { currentPeriod } = require("../../utils/dates");
 const { fileDataUrl } = require("../../utils/files");
 const { applicationPresenter } = require("../../utils/presenters");
+const { inAdminBranch } = require("../../utils/admin-scope");
 const snapshot = require("../../services/snapshot.service");
 const kv = require("../../services/kv.service");
 const pgStore = require("../../services/postgres-store.service");
 
 function store() {
   return kv.enabled() ? kv : pgStore;
-}
-
-function inAdminBranch(req, row) {
-  const branch = req.admin?.branch || "Consejo Nacional - Lima";
-  if (req.admin?.role === "SUPER_ADMIN") return true;
-  return (row?.branch || "Consejo Nacional - Lima") === branch;
 }
 
 // Solicitudes: revision documentaria y decision administrativa.

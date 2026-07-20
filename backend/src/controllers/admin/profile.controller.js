@@ -3,14 +3,10 @@ const { getPool } = require("../../config/database");
 const snapshot = require("../../services/snapshot.service");
 const kv = require("../../services/kv.service");
 const pgStore = require("../../services/postgres-store.service");
+const { inAdminBranch, scopedBranch } = require("../../utils/admin-scope");
 
 function dataStore() {
   return kv.enabled() ? kv : pgStore;
-}
-
-function scopedBranch(req, requestedBranch) {
-  const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
-  return adminBranch === "Consejo Nacional - Lima" ? requestedBranch : adminBranch;
 }
 
 function scopedRole(req, requestedRole) {
@@ -18,10 +14,7 @@ function scopedRole(req, requestedRole) {
 }
 
 function canManageAdmin(req, admin) {
-  if (!admin) return false;
-  const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
-  if (adminBranch === "Consejo Nacional - Lima") return true;
-  return (admin.branch || "Consejo Nacional - Lima") === adminBranch;
+  return Boolean(admin) && inAdminBranch(req, admin);
 }
 
 function normalizeAdminBody(req, requirePassword = false) {
@@ -124,7 +117,7 @@ async function updateProfile(req, res) {
 }
 
 async function listAdmins(req, res) {
-  const visibleToAdmin = (admin) => scopedBranch(req, admin.branch || "Consejo Nacional - Lima") === (admin.branch || "Consejo Nacional - Lima");
+  const visibleToAdmin = (admin) => inAdminBranch(req, admin);
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) return res.json((await (kv.enabled() ? kv : pgStore).listAdmins()).filter(visibleToAdmin));
   if (req.dbReady === false && snapshot.available()) return res.json(snapshot.listAdmins().filter(visibleToAdmin));
 

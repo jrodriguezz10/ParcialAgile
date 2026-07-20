@@ -2,14 +2,13 @@ const { getPool } = require("../../config/database");
 const snapshot = require("../../services/snapshot.service");
 const kv = require("../../services/kv.service");
 const pgStore = require("../../services/postgres-store.service");
+const { adminBranch, inAdminBranch, isSuperAdmin } = require("../../utils/admin-scope");
 
 // Usuarios registrados: consulta privada para administradores.
 async function listUsers(req, res) {
   if (req.dbReady === false && snapshot.available()) {
     const query = String(req.query.q || "");
-    const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
-    const inBranch = (user) => adminBranch === "Consejo Nacional - Lima" || (user.branch || "Consejo Nacional - Lima") === adminBranch;
-    if (kv.enabled() || pgStore.enabled()) return res.json((await (kv.enabled() ? kv : pgStore).listUsers(query)).filter(inBranch));
+    if (kv.enabled() || pgStore.enabled()) return res.json((await (kv.enabled() ? kv : pgStore).listUsers(query)).filter((user) => inAdminBranch(req, user)));
     const snapshotUsers = snapshot.listUsers(query);
     const kvUsers = kv.enabled() ? await kv.listKvUsers(query) : [];
     const kvApplications = kv.enabled() ? await kv.listKvApplications("TODOS") : [];
@@ -26,18 +25,16 @@ async function listUsers(req, res) {
         enrollment_date: null,
       };
     });
-    return res.json([...enrichedKvUsers, ...snapshotUsers].filter(inBranch));
+    return res.json([...enrichedKvUsers, ...snapshotUsers].filter((user) => inAdminBranch(req, user)));
   }
 
   const pool = getPool();
   const search = String(req.query.q || "").trim();
   const params = [];
   const clauses = [];
-  const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
-
-  if (adminBranch !== "Consejo Nacional - Lima") {
+  if (!isSuperAdmin(req.admin)) {
     clauses.push("u.branch = ?");
-    params.push(adminBranch);
+    params.push(adminBranch(req.admin));
   }
 
   if (search) {
