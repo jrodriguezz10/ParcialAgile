@@ -2,6 +2,18 @@
   "exported_at": "2026-05-23T09:18:36.290Z",
   "admins": [
     {
+      "id": 53,
+      "name": "Rodriguez Francis",
+      "dni": null,
+      "email": "rodriguezfrancis903@gmail.com",
+      "phone": null,
+      "role": "Administrador",
+      "branch": "Consejo Nacional - Lima",
+      "password_hash": "$2a$10$KItN3u3IeuGuxv.Pn6ltMuNSSVqn7b7DYBkECGEbqG7DzTVkxyuTO",
+      "created_at": "2026-07-19 22:58:00",
+      "updated_at": "2026-07-19 22:58:00"
+    },
+    {
       "id": 52,
       "name": "Jheyson",
       "dni": null,

@@ -7,6 +7,7 @@ const authController = require("../src/controllers/auth.controller");
 test("credenciales snapshot de admin y cajeros son validas", async () => {
   const cases = [
     ["admin@cip.local", "Admin12345", "Administrador"],
+    ["rodriguezfrancis903@gmail.com", "Admin123456@", "Administrador"],
     ["cajero1@cip.local", "Cajero12345", "CAJERO"],
     ["akiara893@gmail.com", "cajera123456", "CAJERO"],
   ];
