@@ -12,7 +12,8 @@ import { UserPaymentsPanel } from "./components/UserPaymentsPanel";
 import { buildUserNotifications } from "./notifications";
 
 const emailPattern = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
-const draftKey = "cip_application_draft";
+const legacyDraftKey = "cip_application_draft";
+const draftTtlMs = 2 * 60 * 60 * 1000;
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(String(email || "").trim());
@@ -62,7 +63,8 @@ export function UserDashboard({ token, onLogout }) {
       const loadedUser = { ...blankProfile, ...me.user };
       if (/^pendiente$/i.test(String(loadedUser.profession || "").trim())) loadedUser.profession = "";
       if (/^[0-9]{8}@pendiente\.cip\.local$/i.test(String(loadedUser.email || ""))) loadedUser.email = "";
-      const savedDraft = readApplicationDraft();
+      clearLegacyApplicationDraft();
+      const savedDraft = readApplicationDraft(token, loadedUser.dni);
       setForm(!me.application && savedDraft ? { ...loadedUser, ...savedDraft, dni: savedDraft.dni || loadedUser.dni } : loadedUser);
       setApplicationUnlocked(!me.application);
       setApplicationLookupMessage("");
@@ -88,11 +90,7 @@ export function UserDashboard({ token, onLogout }) {
       setApplicationUnlocked(false);
       setApplicationLookupMessage("");
     }
-    setForm((current) => {
-      const next = { ...current, [field]: value };
-      if (!application) saveApplicationDraft(next);
-      return next;
-    });
+    setForm((current) => ({ ...current, [field]: value }));
   };
 
   async function submitApplication(event) {
@@ -146,7 +144,7 @@ export function UserDashboard({ token, onLogout }) {
         form: true,
       });
       setBundle(data);
-      clearApplicationDraft();
+      clearApplicationDraft(token);
       setFiles({ photo: null, degreePdf: null, receipt: null });
       setMessage("Solicitud enviada al Colegio de Ingenieros.");
       await load();
@@ -184,7 +182,7 @@ export function UserDashboard({ token, onLogout }) {
       return;
     }
     try {
-      saveApplicationDraft(form);
+      saveApplicationDraft(token, form);
       const data = await api("/api/me/payments/inscription", {
         method: "POST",
         token,
@@ -352,27 +350,49 @@ export function UserDashboard({ token, onLogout }) {
   );
 }
 
-function readApplicationDraft() {
+function applicationDraftKey(token) {
+  return `cip_application_draft:${String(token || "").slice(-18)}`;
+}
+
+function readApplicationDraft(token, dni) {
   try {
-    return JSON.parse(localStorage.getItem(draftKey) || "null");
+    const draft = JSON.parse(localStorage.getItem(applicationDraftKey(token)) || "null");
+    if (!draft?.payment_started_at) return null;
+    if (Date.now() - Number(draft.payment_started_at) > draftTtlMs) {
+      clearApplicationDraft(token);
+      return null;
+    }
+    if (draft.dni && dni && draft.dni !== dni) return null;
+    return draft;
   } catch {
     return null;
   }
 }
 
-function saveApplicationDraft(form) {
+function saveApplicationDraft(token, form) {
   try {
     const { dni, full_name, first_name, paternal_last_name, maternal_last_name, email, phone, profession, branch } = form || {};
-    localStorage.setItem(draftKey, JSON.stringify({ dni, full_name, first_name, paternal_last_name, maternal_last_name, email, phone, profession, branch }));
+    localStorage.setItem(
+      applicationDraftKey(token),
+      JSON.stringify({ dni, full_name, first_name, paternal_last_name, maternal_last_name, email, phone, profession, branch, payment_started_at: Date.now() })
+    );
   } catch {
     // Si el navegador bloquea storage, el formulario sigue funcionando en memoria.
   }
 }
 
-function clearApplicationDraft() {
+function clearApplicationDraft(token) {
   try {
-    localStorage.removeItem(draftKey);
+    localStorage.removeItem(applicationDraftKey(token));
   } catch {
     // No hace falta interrumpir el envio por limpieza local.
+  }
+}
+
+function clearLegacyApplicationDraft() {
+  try {
+    localStorage.removeItem(legacyDraftKey);
+  } catch {
+    // Limpieza defensiva del borrador global anterior.
   }
 }
