@@ -12,6 +12,7 @@ const { refreshMemberStatus } = require("../services/members.service");
 const kv = require("../services/kv.service");
 const pgStore = require("../services/postgres-store.service");
 const { isValidEmail, normalizeDni } = require("../utils/text");
+const { monthlyAmountForPeriod, totalMonthlyAmount } = require("../utils/monthly-amount");
 
 function store() {
   return kv.enabled() ? kv : pgStore;
@@ -95,7 +96,7 @@ async function listUserPayments(req, res) {
       member,
       payments,
       pending_periods: pendingPeriods,
-      debt_amount: pendingPeriods.length * 2,
+      debt_amount: totalMonthlyAmount(pendingPeriods, currentPeriod()),
     });
   }
 
@@ -119,7 +120,7 @@ async function listUserPayments(req, res) {
       member: { ...member, status: await refreshMemberStatus(member.id) },
       payments,
       pending_periods: pendingPeriods,
-      debt_amount: pendingPeriods.length * 2,
+      debt_amount: totalMonthlyAmount(pendingPeriods, currentPeriod()),
     });
   } catch (error) {
     console.warn("Pagos temporales por error de base de datos:", error.message);
@@ -132,6 +133,7 @@ async function createMonthlyPayment(req, res) {
   if (req.dbReady === false && (pgStore.enabled() || kv.enabled())) {
     const period = req.body.period_month || currentPeriod();
     if (!isValidPeriod(period)) return res.status(422).json({ message: "Periodo invalido. Usa YYYY-MM." });
+    const amount = monthlyAmountForPeriod(period, currentPeriod());
 
     const { user, member } = await getPgUserAndMember(req);
     if (!member) {
@@ -146,25 +148,25 @@ async function createMonthlyPayment(req, res) {
     }
 
     const externalReference = createExternalReference(member.id, period);
-    let created = await store().createMemberPayment(member.id, period, 2, null, "MERCADO_PAGO", {
+    let created = await store().createMemberPayment(member.id, period, amount, null, "MERCADO_PAGO", {
       status: "PENDIENTE",
       external_reference: externalReference,
     });
     const mp = await createMercadoPagoPreference(
       {
         ...created.payment,
-        amount: 2,
+        amount,
         period_month: period,
         external_reference: externalReference,
         item_id: `mensualidad-${member.id}-${period}`,
         title: `Mensualidad CIP ${period}`,
-        description: `Mensualidad CIP de S/ 2.00 - ${period}`,
+        description: `Mensualidad CIP de S/ ${amount.toFixed(2)} - ${period}`,
       },
       user,
       req
     );
     if (mp.preference_id) {
-      created = await store().createMemberPayment(member.id, period, 2, null, "MERCADO_PAGO", {
+      created = await store().createMemberPayment(member.id, period, amount, null, "MERCADO_PAGO", {
         status: "PENDIENTE",
         external_reference: externalReference,
         mp_preference_id: mp.preference_id,
@@ -182,6 +184,7 @@ async function createMonthlyPayment(req, res) {
   const pool = getPool();
   const period = req.body.period_month || currentPeriod();
   if (!isValidPeriod(period)) return res.status(422).json({ message: "Periodo invalido. Usa YYYY-MM." });
+  const amount = monthlyAmountForPeriod(period, currentPeriod());
 
   const [[user]] = await pool.query("SELECT * FROM users WHERE id = ?", [req.auth.sub]);
   const [[member]] = await pool.query("SELECT * FROM members WHERE user_id = ?", [req.auth.sub]);
@@ -200,12 +203,12 @@ async function createMonthlyPayment(req, res) {
   const externalReference = createExternalReference(member.id, period);
   await pool.query(
     `INSERT INTO payments (member_id, user_id, period_month, amount, payment_type, method, status, external_reference)
-     VALUES (?, ?, ?, 2.00, 'MENSUALIDAD', 'MERCADO_PAGO', 'PENDIENTE', ?)
+     VALUES (?, ?, ?, ?, 'MENSUALIDAD', 'MERCADO_PAGO', 'PENDIENTE', ?)
      ON DUPLICATE KEY UPDATE
        status = IF(status = 'PAGADO', status, 'PENDIENTE'),
        method = IF(status = 'PAGADO', method, 'MERCADO_PAGO'),
        external_reference = IF(status = 'PAGADO', external_reference, VALUES(external_reference))`,
-    [member.id, user.id, period, externalReference]
+    [member.id, user.id, period, amount, externalReference]
   );
 
   const [[payment]] = await pool.query("SELECT * FROM payments WHERE member_id = ? AND period_month = ? AND payment_type = 'MENSUALIDAD'", [
@@ -232,11 +235,11 @@ async function createFullPayment(req, res) {
     if (!pendingPeriods.length) {
       return res.json({ message: "No tienes mensualidades pendientes.", pending_periods: [], debt_amount: 0 });
     }
-    const amount = pendingPeriods.length * 2;
+    const amount = totalMonthlyAmount(pendingPeriods, currentPeriod());
     const externalReference = createBatchExternalReference(member.id);
     let payments = [];
     for (const period of pendingPeriods) {
-      const created = await store().createMemberPayment(member.id, period, 2, null, "MERCADO_PAGO_TOTAL", {
+      const created = await store().createMemberPayment(member.id, period, monthlyAmountForPeriod(period, currentPeriod()), null, "MERCADO_PAGO_TOTAL", {
         status: "PENDIENTE",
         external_reference: externalReference,
       });
@@ -253,7 +256,7 @@ async function createFullPayment(req, res) {
     if (mp.preference_id) {
       payments = [];
       for (const period of pendingPeriods) {
-        const created = await store().createMemberPayment(member.id, period, 2, null, "MERCADO_PAGO_TOTAL", {
+        const created = await store().createMemberPayment(member.id, period, monthlyAmountForPeriod(period, currentPeriod()), null, "MERCADO_PAGO_TOTAL", {
           status: "PENDIENTE",
           external_reference: externalReference,
           mp_preference_id: mp.preference_id,
@@ -282,7 +285,7 @@ async function createFullPayment(req, res) {
     return res.json({ message: "No tienes mensualidades pendientes.", pending_periods: [], debt_amount: 0 });
   }
 
-  const amount = pendingPeriods.length * 2;
+  const amount = totalMonthlyAmount(pendingPeriods, currentPeriod());
   const externalReference = createBatchExternalReference(member.id);
   const [result] = await pool.query(
     `INSERT INTO payment_batches (member_id, user_id, periods_json, amount, status, external_reference)

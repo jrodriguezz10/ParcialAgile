@@ -13,9 +13,15 @@ function CardPhoto({ src }) {
   return <img src={src} crossOrigin="anonymous" alt="Foto del colegiado" onError={() => setFailed(true)} />;
 }
 
+export function memberCardCode(member) {
+  const digits = String(member?.membership_number || "").replace(/\D/g, "");
+  return digits.slice(-8).padStart(8, "0");
+}
+
 export function VirtualCard({ cardRef, user, application, member }) {
   const enabled = member.status === "HABILITADO";
   const photoUrl = application?.photo_url || member?.photo_url || user?.photo_url;
+  const code = memberCardCode(member);
 
   return (
     <div className="card-frame">
@@ -53,7 +59,7 @@ export function VirtualCard({ cardRef, user, application, member }) {
           </div>
         </div>
         <footer>
-          <span>Nro. Reg. CIP: {member.membership_number}</span>
+          <span>{code}</span>
           <b>{enabled ? "HABILITADO" : "INHABILITADO"}</b>
         </footer>
       </article>

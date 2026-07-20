@@ -3,6 +3,7 @@ const { getPool } = require("../config/database");
 const kv = require("../services/kv.service");
 const pgStore = require("../services/postgres-store.service");
 const { currentPeriod, effectiveEnrollmentPeriod, periodsBetween, previousPeriod } = require("../utils/dates");
+const { totalMonthlyAmount } = require("../utils/monthly-amount");
 const { sendDebtNoticeEmail } = require("../services/mail.service");
 
 function calculateDebt(member, payments) {
@@ -10,7 +11,7 @@ function calculateDebt(member, payments) {
   const start = effectiveEnrollmentPeriod(member.enrollment_date, payments);
   const end = previousPeriod(currentPeriod());
   const pendingPeriods = start && start <= end ? periodsBetween(start, end).filter((period) => !paid.has(period)) : [];
-  return { pendingPeriods, debtAmount: pendingPeriods.length * 2 };
+  return { pendingPeriods, debtAmount: totalMonthlyAmount(pendingPeriods, currentPeriod()) };
 }
 
 async function notifyOverdueEmail(req, res) {

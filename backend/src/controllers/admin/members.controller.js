@@ -7,6 +7,7 @@ const { currentPeriod, effectiveEnrollmentPeriod, isValidPeriod, periodsBetween,
 const { fileDataUrl, fileUrl, frontendUrl } = require("../../utils/files");
 const { inAdminBranch, scopedBranch } = require("../../utils/admin-scope");
 const { isValidEmail, normalizeDni } = require("../../utils/text");
+const { monthlyAmountForPeriod, totalMonthlyAmount } = require("../../utils/monthly-amount");
 const snapshot = require("../../services/snapshot.service");
 const kv = require("../../services/kv.service");
 const pgStore = require("../../services/postgres-store.service");
@@ -21,7 +22,7 @@ function withDebt(member, payments) {
   const start = effectiveEnrollmentPeriod(member.enrollment_date, payments || []);
   const end = previousPeriod(currentPeriod());
   const pendingPeriods = start && start <= end ? periodsBetween(start, end).filter((period) => !paid.has(period)) : [];
-  return { ...member, pending_periods: pendingPeriods, debt_count: pendingPeriods.length, debt_amount: pendingPeriods.length * 2 };
+  return { ...member, pending_periods: pendingPeriods, debt_count: pendingPeriods.length, debt_amount: totalMonthlyAmount(pendingPeriods, currentPeriod()) };
 }
 
 function assertBranchAccess(req, member) {
@@ -336,7 +337,7 @@ function paymentsWithPendingDebt(member, payments) {
       member_id: Number(member.id),
       user_id: member.user_id,
       period_month: period,
-      amount: 2,
+      amount: monthlyAmountForPeriod(period, currentPeriod()),
       payment_type: "MENSUALIDAD",
       method: "PENDIENTE",
       method_detail: null,
@@ -382,13 +383,12 @@ async function listMemberPayments(req, res) {
 async function createMemberPayment(req, res) {
   const requestedPeriods = Array.isArray(req.body.periods) ? req.body.periods : [req.body.period_month || currentPeriod()];
   const periods = [...new Set(requestedPeriods.map(String))];
-  const period = periods[0];
-  const amount = Number(req.body.amount || 2);
-  const paymentTotal = periods.length * amount;
+  const periodAmounts = new Map(periods.map((item) => [item, monthlyAmountForPeriod(item, currentPeriod())]));
+  const paymentTotal = totalMonthlyAmount(periods, currentPeriod());
   const paymentSummary = paymentMethodSummary(req.body.payment_methods, paymentTotal);
   const perPeriodPaymentSummary = proratedPaymentMethodSummary(req.body.payment_methods, periods.length, paymentTotal, paymentSummary);
   if (!periods.length || periods.some((item) => !isValidPeriod(item))) return res.status(422).json({ message: "Periodo invalido. Usa YYYY-MM." });
-  if (amount <= 0) return res.status(422).json({ message: "Monto invalido." });
+  if (paymentTotal <= 0) return res.status(422).json({ message: "Monto invalido." });
 
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     const member = (await store().listMembers("TODOS")).find((item) => Number(item.id) === Number(req.params.id));
@@ -396,7 +396,7 @@ async function createMemberPayment(req, res) {
     assertBranchAccess(req, member);
     let created;
     for (const item of periods) {
-      created = await store().createMemberPayment(req.params.id, item, amount, req.auth.sub, perPeriodPaymentSummary.method, {
+      created = await store().createMemberPayment(req.params.id, item, periodAmounts.get(item), req.auth.sub, perPeriodPaymentSummary.method, {
         method_detail: perPeriodPaymentSummary.detail,
       });
     }
@@ -427,7 +427,7 @@ async function createMemberPayment(req, res) {
        status = 'PAGADO',
        paid_at = CURRENT_TIMESTAMP,
        created_by_admin = VALUES(created_by_admin)`,
-    [member.id, member.user_id, item, amount, perPeriodPaymentSummary.method, perPeriodPaymentSummary.detail, req.auth.sub]
+    [member.id, member.user_id, item, periodAmounts.get(item), perPeriodPaymentSummary.method, perPeriodPaymentSummary.detail, req.auth.sub]
   );
 
   const status = await refreshMemberStatus(member.id);

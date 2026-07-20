@@ -3,6 +3,7 @@ const env = require("../config/env");
 const { getPool } = require("../config/database");
 const { currentPeriod, effectiveEnrollmentPeriod, periodsBetween, previousPeriod } = require("../utils/dates");
 const { frontendUrl, originFromReq } = require("../utils/files");
+const { monthlyAmountForPeriod } = require("../utils/monthly-amount");
 const { refreshMemberStatus } = require("./members.service");
 
 // Mercado Pago preference: arma el checkout remoto para mensualidad o lote.
@@ -130,17 +131,18 @@ async function approveBatchByExternalReference(externalReference, mpPaymentId, p
     );
 
     for (const period of periods) {
+      const amount = monthlyAmountForPeriod(period, currentPeriod());
       await connection.query(
         `INSERT INTO payments
            (member_id, user_id, period_month, amount, payment_type, method, status, paid_at, mp_payment_id)
-         VALUES (?, ?, ?, 2.00, 'MENSUALIDAD', 'MERCADO_PAGO_TOTAL', 'PAGADO', ?, ?)
+         VALUES (?, ?, ?, ?, 'MENSUALIDAD', 'MERCADO_PAGO_TOTAL', 'PAGADO', ?, ?)
          ON DUPLICATE KEY UPDATE
            amount = VALUES(amount),
            method = 'MERCADO_PAGO_TOTAL',
            status = 'PAGADO',
            paid_at = VALUES(paid_at),
            mp_payment_id = VALUES(mp_payment_id)`,
-        [batch.member_id, batch.user_id, period, paidAtValue, mpPaymentId || null]
+        [batch.member_id, batch.user_id, period, amount, paidAtValue, mpPaymentId || null]
       );
     }
 

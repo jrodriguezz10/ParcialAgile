@@ -247,9 +247,11 @@ export function AdminDashboard({ token, onLogout }) {
 
   async function openMemberPayments(member) {
     setSelectedMember(member);
-    setManualPeriod(currentPeriod());
-    setPaymentCount(1);
-    setManualPaymentMethods(defaultPaymentMethods());
+    const pendingPeriods = pendingPeriodsFor(member);
+    const debtTotal = Number(member.debt_amount || pendingPeriods.length * MONTHLY_AMOUNT);
+    setManualPeriod(pendingPeriods[0] || currentPeriod());
+    setPaymentCount(Math.max(1, pendingPeriods.length || 1));
+    setManualPaymentMethods(defaultPaymentMethods(debtTotal || MONTHLY_AMOUNT));
     try {
       const data = await api(`/api/admin/members/${member.id}/payments`, { token });
       setMemberPayments(data);
@@ -459,22 +461,23 @@ export function AdminDashboard({ token, onLogout }) {
 
   async function registerManualPayment(event) {
     event.preventDefault();
-    await registerManualPaymentFor(manualPeriod, paymentCount);
+    if (!selectedMember) return;
+    const periods = pendingPeriodsFor(selectedMember);
+    if (!periods.length) {
+      setMessage("El colegiado no tiene mensualidades vencidas.");
+      return;
+    }
+    await registerManualPaymentForPeriods(periods);
   }
 
-  async function registerManualPaymentFor(startPeriod, count = 1, methods = manualPaymentMethods) {
+  async function registerManualPaymentForPeriods(periods, methods = manualPaymentMethods) {
     if (!selectedMember) return;
     setMessage("");
     try {
-      const periods = Array.from({ length: count }, (_, index) => {
-        const [year, month] = startPeriod.split("-").map(Number);
-        const date = new Date(Date.UTC(year, month - 1 + index, 1));
-        return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-      });
       await api(`/api/admin/members/${selectedMember.id}/payments`, {
         method: "POST",
         token,
-        body: { periods, amount: MONTHLY_AMOUNT, payment_methods: methods },
+        body: { periods, payment_methods: methods },
       });
       const paidMemberId = selectedMember.id;
       const refreshedMember = await refreshSelectedMember(paidMemberId);
@@ -488,6 +491,15 @@ export function AdminDashboard({ token, onLogout }) {
     } catch (error) {
       setMessage(error.message);
     }
+  }
+
+  async function registerManualPaymentFor(startPeriod, count = 1, methods = manualPaymentMethods) {
+    const periods = Array.from({ length: count }, (_, index) => {
+      const [year, month] = startPeriod.split("-").map(Number);
+      const date = new Date(Date.UTC(year, month - 1 + index, 1));
+      return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+    });
+    return registerManualPaymentForPeriods(periods, methods);
   }
 
   function updatePaymentCount(value) {
@@ -729,6 +741,10 @@ function writeStoredPendingNotifications(key, values) {
 
 function onlyPhoneDigits(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 9);
+}
+
+function pendingPeriodsFor(member) {
+  return Array.isArray(member?.pending_periods) ? member.pending_periods.filter(Boolean) : [];
 }
 
 let adminAudioContext = null;

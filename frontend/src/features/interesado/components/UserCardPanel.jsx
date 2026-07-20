@@ -1,5 +1,5 @@
 import { BadgeCheck } from "lucide-react";
-import { VirtualCard } from "../../../components/VirtualCard";
+import { VirtualCard, memberCardCode } from "../../../components/VirtualCard";
 import { StatusBadge } from "../../../components/ui";
 
 // Modulo Carnet: visualiza solo el carnet virtual.
@@ -15,7 +15,7 @@ export function UserCardPanel({
       <div className="section-title">
         <div>
           <span>Carnet virtual</span>
-          <h2>{member ? member.membership_number : "Pendiente de aprobacion"}</h2>
+          <h2>{member ? memberCardCode(member) : "Pendiente de aprobacion"}</h2>
         </div>
         {member && <StatusBadge status={member.status} />}
       </div>

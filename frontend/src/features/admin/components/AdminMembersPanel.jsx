@@ -37,7 +37,8 @@ export function AdminMembersPanel({
       return haystack.includes(normalizedSearch);
     });
   }, [members, normalizedSearch]);
-  const expectedTotal = paymentCount * 2;
+  const pendingPeriods = Array.isArray(selectedMember?.pending_periods) ? selectedMember.pending_periods : [];
+  const expectedTotal = selectedMember ? Number(selectedMember.debt_amount || 0) : paymentCount * 2;
   const paymentTotal = (manualPaymentMethods || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const paymentStatus = getPaymentStatus(manualPaymentMethods, expectedTotal);
 
@@ -125,11 +126,14 @@ export function AdminMembersPanel({
               <div className="payment-panel-head">
                 <div>
                   <span>Pago manual</span>
-                  <strong>Mensualidad S/ 2.00</strong>
+                  <strong>Deuda S/ {expectedTotal.toFixed(2)}</strong>
                 </div>
                 <form className="payment-controls" onSubmit={onRegisterPayment}>
-                  <input type="month" value={manualPeriod} onChange={(event) => onManualPeriodChange(event.target.value)} />
-                  <input type="number" min="1" max="60" value={paymentCount} onChange={(event) => onPaymentCountChange(Math.max(1, Number(event.target.value) || 1))} aria-label="Cantidad de mensualidades" />
+                  <small className={pendingPeriods.length ? "payment-total warning" : "payment-total ok"}>
+                    {pendingPeriods.length
+                      ? `Meses vencidos: ${pendingPeriods.join(", ")}. Incluye 1% de mora en periodos atrasados.`
+                      : "No tiene mensualidades vencidas."}
+                  </small>
                   <PaymentMethodsEditor
                     methods={manualPaymentMethods}
                     expectedTotal={expectedTotal}
@@ -141,7 +145,9 @@ export function AdminMembersPanel({
                     {paymentStatus.change > 0.01 && ` - Vuelto S/ ${paymentStatus.change.toFixed(2)}`}
                     {paymentStatus.invalidChange && " - El vuelto solo aplica con efectivo"}
                   </small>
-                  <Button icon={ReceiptText} disabled={!paymentStatus.canSubmit}>Cobrar {paymentCount} mensualidad{paymentCount > 1 ? "es" : ""}</Button>
+                  <Button icon={ReceiptText} disabled={!pendingPeriods.length || !paymentStatus.canSubmit}>
+                    Cobrar {pendingPeriods.length || 0} mensualidad{pendingPeriods.length === 1 ? "" : "es"}
+                  </Button>
                 </form>
               </div>
               <DataTable
@@ -158,10 +164,6 @@ export function AdminMembersPanel({
                   payment.status === "PAGADO" ? (
                     <button className="inline-action" onClick={() => downloadPaymentReceiptPdf(payment, selectedMember)}>
                       Descargar
-                    </button>
-                  ) : payment.status === "PENDIENTE" && payment.payment_type === "MENSUALIDAD" ? (
-                    <button className="inline-action" onClick={() => onRegisterSinglePeriod(payment.period_month)}>
-                      Cobrar mes
                     </button>
                   ) : (
                     "Pendiente"
