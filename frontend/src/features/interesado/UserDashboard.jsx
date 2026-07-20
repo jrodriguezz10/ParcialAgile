@@ -5,7 +5,6 @@ import { ProfileCard } from "../../components/ui";
 import { isValidEngineeringCareer } from "../../constants/catalogs";
 import { APP_STATUS, MEMBER_STATUS, blankProfile } from "../../constants/status";
 import { api } from "../../lib/api";
-import { cacheSubmittedApplication, mergeUserBundle } from "../../lib/localFallbackStore";
 import { currentPeriod } from "../../utils/format";
 import { UserApplicationPanel } from "./components/UserApplicationPanel";
 import { UserCardPanel } from "./components/UserCardPanel";
@@ -15,6 +14,7 @@ import { buildUserNotifications } from "./notifications";
 const emailPattern = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$";
 const legacyDraftKey = "cip_application_draft";
 const draftTtlMs = 2 * 60 * 60 * 1000;
+const staleLocalKeys = ["cip_local_applications", "cip_local_members", "cip_local_payments"];
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(String(email || "").trim());
@@ -22,6 +22,16 @@ function isValidEmail(email) {
 
 function onlyDniDigits(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 8);
+}
+
+function clearStaleLocalFallback() {
+  staleLocalKeys.forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Ignora navegadores sin localStorage disponible.
+    }
+  });
 }
 
 const USER_NAV_ITEMS = [
@@ -53,22 +63,22 @@ export function UserDashboard({ token, onLogout }) {
   async function load() {
     setLoading(true);
     try {
+      clearStaleLocalFallback();
       const [me, paymentData] = await Promise.all([
         api("/api/me", { token }),
         api("/api/me/payments", { token }),
       ]);
-      const mergedMe = mergeUserBundle(me);
-      setBundle(mergedMe);
+      setBundle(me);
       setPayments(paymentData.payments || []);
       setPendingPeriods(paymentData.pending_periods || []);
       setDebtAmount(Number(paymentData.debt_amount || 0));
-      const loadedUser = { ...blankProfile, ...mergedMe.user };
+      const loadedUser = { ...blankProfile, ...me.user };
       if (/^pendiente$/i.test(String(loadedUser.profession || "").trim())) loadedUser.profession = "";
       if (/^[0-9]{8}@pendiente\.cip\.local$/i.test(String(loadedUser.email || ""))) loadedUser.email = "";
       clearLegacyApplicationDraft();
       const savedDraft = readApplicationDraft(token, loadedUser.dni);
-      setForm(!mergedMe.application && savedDraft ? { ...loadedUser, ...savedDraft, dni: savedDraft.dni || loadedUser.dni } : loadedUser);
-      setApplicationUnlocked(!mergedMe.application);
+      setForm(!me.application && savedDraft ? { ...loadedUser, ...savedDraft, dni: savedDraft.dni || loadedUser.dni } : loadedUser);
+      setApplicationUnlocked(!me.application);
       setApplicationLookupMessage("");
       setPeriod(me.current_period || currentPeriod());
     } catch (error) {
@@ -144,8 +154,7 @@ export function UserDashboard({ token, onLogout }) {
         body: payload,
         form: true,
       });
-      await cacheSubmittedApplication(data, form, files);
-      setBundle(mergeUserBundle(data));
+      setBundle(data);
       clearApplicationDraft(token);
       setFiles({ photo: null, degreePdf: null, receipt: null });
       setMessage("Solicitud enviada al Colegio de Ingenieros.");
