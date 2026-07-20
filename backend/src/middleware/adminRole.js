@@ -14,6 +14,10 @@ function adminRole(...allowed) {
       if (admin.disabled_at) return res.status(403).json({ message: "Esta cuenta administrativa esta deshabilitada." });
       const role = String(admin.role || "ADMIN_SEDE").toUpperCase();
       const normalized = role === "ADMINISTRADOR" ? "ADMIN_SEDE" : role;
+      if (normalized === "SUPER_ADMIN") {
+        req.admin = { ...admin, role: normalized };
+        return next();
+      }
       if (allowed.length && !allowed.includes(normalized)) return res.status(403).json({ message: "Tu rol no tiene permiso para esta operacion." });
       req.admin = { ...admin, role: normalized };
       next();

@@ -240,8 +240,8 @@ export function AdminSettingsPanel({
                 type="button"
                 className="inline-icon-action danger"
                 onClick={() => onDeleteAdmin(admin)}
-                disabled={!admin.disabled_at || Number(admin.id) === Number(adminInfo?.id)}
-                title={admin.disabled_at ? "Eliminar acceso" : "Primero deshabilita para eliminar"}
+                disabled={Number(admin.id) === Number(adminInfo?.id)}
+                title={Number(admin.id) === Number(adminInfo?.id) ? "No puedes eliminar tu propia cuenta" : "Eliminar acceso"}
                 aria-label={`Eliminar ${admin.name}`}
               >
                 <Trash2 size={16} />

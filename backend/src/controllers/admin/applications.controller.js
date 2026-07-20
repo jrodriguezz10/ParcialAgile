@@ -13,7 +13,8 @@ function store() {
 
 function inAdminBranch(req, row) {
   const branch = req.admin?.branch || "Consejo Nacional - Lima";
-  return branch === "Consejo Nacional - Lima" || (row?.branch || "Consejo Nacional - Lima") === branch;
+  if (req.admin?.role === "SUPER_ADMIN") return true;
+  return (row?.branch || "Consejo Nacional - Lima") === branch;
 }
 
 // Solicitudes: revision documentaria y decision administrativa.
@@ -240,4 +241,5 @@ module.exports = {
   approveApplication,
   observeApplication,
   rejectApplication,
+  _inAdminBranch: inAdminBranch,
 };

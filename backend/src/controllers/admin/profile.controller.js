@@ -245,11 +245,13 @@ async function deleteAdminById(req, res) {
   }
 
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
-    await dataStore().deleteAdmin(target.id);
+    const deleted = await dataStore().deleteAdmin(target.id);
+    if (!deleted) return res.status(404).json({ message: "Usuario no encontrado." });
     return res.json({ ok: true });
   }
   if (req.dbReady === false && snapshot.available()) {
-    snapshot.deleteAdmin(target.id);
+    const deleted = snapshot.deleteAdmin(target.id);
+    if (!deleted) return res.status(404).json({ message: "Usuario no encontrado." });
     return res.json({ ok: true });
   }
 
