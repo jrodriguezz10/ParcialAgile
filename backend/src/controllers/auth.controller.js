@@ -33,9 +33,11 @@ async function loginAdmin(req, res) {
   try {
     if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
       admin = await (kv.enabled() ? kv : pgStore).findAdminByEmail(email);
+    } else if (req.dbReady === false && snapshot.available()) {
+      admin = snapshot.findAdminByEmail(email);
     } else {
-    const pool = getPool();
-    [[admin]] = await pool.query("SELECT * FROM admins WHERE email = ?", [email]);
+      const pool = getPool();
+      [[admin]] = await pool.query("SELECT * FROM admins WHERE email = ?", [email]);
     }
   } catch (error) {
     if (!snapshot.available()) throw error;
@@ -59,6 +61,9 @@ async function findAdminByEmailForRequest(req, email) {
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     return dataStore().findAdminByEmail(email);
   }
+  if (req.dbReady === false && snapshot.available()) {
+    return snapshot.findAdminByEmail(email);
+  }
   try {
     const pool = getPool();
     const [[admin]] = await pool.query("SELECT * FROM admins WHERE email = ?", [email]);
@@ -72,6 +77,15 @@ async function findAdminByEmailForRequest(req, email) {
 async function updateAdminPasswordForRequest(req, admin, passwordHash) {
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     return dataStore().updateAdminPassword(admin.id, passwordHash);
+  }
+  if (req.dbReady === false && snapshot.available()) {
+    const updated = snapshot.updateAdminPassword(admin.id, passwordHash);
+    if (!updated) {
+      const notFound = new Error("Administrador no encontrado.");
+      notFound.statusCode = 404;
+      throw notFound;
+    }
+    return updated;
   }
   try {
     const pool = getPool();

@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const bcrypt = require("bcryptjs");
 const snapshot = require("../src/services/snapshot.service");
+const authController = require("../src/controllers/auth.controller");
 
 test("credenciales snapshot de admin y cajeros son validas", async () => {
   const cases = [
@@ -18,3 +19,31 @@ test("credenciales snapshot de admin y cajeros son validas", async () => {
   }
 });
 
+test("login admin usa snapshot cuando la base no esta lista", async () => {
+  const req = {
+    dbReady: false,
+    body: {
+      email: "akiara893@gmail.com",
+      password: "cajera123456",
+    },
+  };
+  const res = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.body = payload;
+      return this;
+    },
+  };
+
+  await authController.loginAdmin(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.admin.email, "akiara893@gmail.com");
+  assert.equal(res.body.admin.name, "Cajera La Libertad");
+  assert.ok(res.body.token);
+});
