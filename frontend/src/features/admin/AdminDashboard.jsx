@@ -142,7 +142,7 @@ export function AdminDashboard({ token, onLogout }) {
       const profile = await loadAdminProfile();
       if (profile?.role === "CAJERO") {
         setMemberFilter("INHABILITADO");
-        await Promise.all([loadMembers("INHABILITADO"), loadMemberSummary()]);
+        await Promise.all([loadApplications(), loadApplicationSummary(), loadMembers("INHABILITADO"), loadMemberSummary()]);
       } else {
         await Promise.all([loadApplications(), loadApplicationSummary(), loadMembers(), loadMemberSummary(), loadAdminUsers()]);
       }
@@ -162,11 +162,11 @@ export function AdminDashboard({ token, onLogout }) {
   }, [token]);
 
   useEffect(() => {
-    if (adminInfo?.role === "CAJERO") {
-      setActiveModule("padron");
+    if (adminInfo?.role === "CAJERO" && !["solicitudes", "detalle", "padron", "configuracion"].includes(activeModule)) {
+      setActiveModule("solicitudes");
       setMemberFilter("INHABILITADO");
     }
-  }, [adminInfo?.role]);
+  }, [adminInfo?.role, activeModule]);
 
   useEffect(() => {
     const unlock = () => {
@@ -186,7 +186,7 @@ export function AdminDashboard({ token, onLogout }) {
   }, []);
 
   useEffect(() => {
-    if (!adminInfo || adminInfo.role === "CAJERO") return undefined;
+    if (!adminInfo) return undefined;
     const timer = window.setInterval(() => {
       Promise.all([loadApplications(applicationFilter), loadApplicationSummary()]).catch((error) => setMessage(error.message));
     }, 15000);
@@ -194,7 +194,7 @@ export function AdminDashboard({ token, onLogout }) {
   }, [token, applicationFilter, adminInfo?.role]);
 
   useEffect(() => {
-    if (!adminInfo || adminInfo.role === "CAJERO") return;
+    if (!adminInfo) return;
     loadApplications(applicationFilter).catch((error) => setMessage(error.message));
   }, [applicationFilter, token, adminInfo?.role]);
 
@@ -562,7 +562,7 @@ export function AdminDashboard({ token, onLogout }) {
           detail={`${stats.pending} solicitudes pendientes`}
         />
       }
-      navItems={adminInfo?.role === "CAJERO" ? ADMIN_NAV_ITEMS.filter((item) => ["padron", "configuracion"].includes(item.keyName)) : ADMIN_NAV_ITEMS}
+      navItems={adminInfo?.role === "CAJERO" ? ADMIN_NAV_ITEMS.filter((item) => ["solicitudes", "detalle", "padron", "configuracion"].includes(item.keyName)) : ADMIN_NAV_ITEMS}
       summary={[
         { icon: ListChecks, label: "Solicitudes pendientes", value: pendingApplications.length },
       ]}
@@ -591,6 +591,7 @@ export function AdminDashboard({ token, onLogout }) {
             setObservations("");
           }}
           onAction={actOnApplication}
+          canReview={adminInfo?.role !== "CAJERO"}
         />
       </div>
 

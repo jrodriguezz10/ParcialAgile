@@ -14,6 +14,7 @@ export function AdminReviewPanel({
   onSelectApplication,
   onCloseSelection,
   onAction,
+  canReview = true,
 }) {
   const [query, setQuery] = useState("");
 
@@ -120,17 +121,17 @@ export function AdminReviewPanel({
 
           <label>
             Observaciones
-            <textarea value={observations} onChange={(event) => onObservationsChange(event.target.value)} rows={5} />
+            <textarea value={observations} onChange={(event) => onObservationsChange(event.target.value)} rows={5} disabled={!canReview} />
           </label>
 
           <div className="button-row">
-            <Button icon={Check} onClick={() => onAction("approve")} disabled={selectedApp.status === "APROBADO"}>
+            <Button icon={Check} onClick={() => onAction("approve")} disabled={!canReview || selectedApp.status === "APROBADO"}>
               Aprobar
             </Button>
-            <Button icon={AlertTriangle} variant="secondary" onClick={() => onAction("observe")} disabled={selectedApp.status === "APROBADO"}>
+            <Button icon={AlertTriangle} variant="secondary" onClick={() => onAction("observe")} disabled={!canReview || selectedApp.status === "APROBADO"}>
               Observar
             </Button>
-            <Button icon={X} variant="danger" onClick={() => onAction("reject")} disabled={selectedApp.status === "APROBADO"}>
+            <Button icon={X} variant="danger" onClick={() => onAction("reject")} disabled={!canReview || selectedApp.status === "APROBADO"}>
               Rechazar
             </Button>
           </div>

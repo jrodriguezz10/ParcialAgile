@@ -31,8 +31,8 @@ router.post(
 );
 
 // Revision documentaria de solicitudes.
-router.get("/admin/applications", auth("admin"), adminRole("ADMIN_SEDE"), asyncHandler(controller.listApplications));
-router.get("/admin/applications/:id", auth("admin"), adminRole("ADMIN_SEDE"), asyncHandler(controller.getApplication));
+router.get("/admin/applications", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.listApplications));
+router.get("/admin/applications/:id", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.getApplication));
 router.post(
   "/admin/applications/:id/files/import",
   auth("admin"),
