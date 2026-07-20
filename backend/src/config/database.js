@@ -237,8 +237,19 @@ async function migrate() {
   await pool.query(
     `UPDATE payments
      SET payment_type = 'INSCRIPCION'
-     WHERE method IN ('RECIBO_INSCRIPCION', 'REGISTRO_ADMIN', 'EFECTIVO')
-        OR (method = 'MERCADO_PAGO' AND created_by_admin IS NOT NULL)`
+     WHERE method IN ('RECIBO_INSCRIPCION', 'REGISTRO_ADMIN')`
+  );
+  await pool.query(
+    `UPDATE payments p
+     LEFT JOIN payments c
+       ON c.id <> p.id
+      AND c.member_id = p.member_id
+      AND c.period_month = p.period_month
+      AND c.payment_type = 'INSCRIPCION'
+     SET p.payment_type = 'INSCRIPCION'
+     WHERE p.method = 'MERCADO_PAGO'
+       AND p.created_by_admin IS NOT NULL
+       AND c.id IS NULL`
   );
   await ensurePaymentTypeIndex();
 }
