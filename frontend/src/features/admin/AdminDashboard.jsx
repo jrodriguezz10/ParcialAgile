@@ -201,10 +201,17 @@ export function AdminDashboard({ token, onLogout }) {
   useEffect(() => {
     if (!adminInfo) return undefined;
     const timer = window.setInterval(() => {
-      Promise.all([loadApplications(applicationFilter), loadApplicationSummary()]).catch((error) => setMessage(error.message));
+      const refreshes = [
+        loadApplications(applicationFilter),
+        loadApplicationSummary(),
+        loadMembers(memberFilter),
+        loadMemberSummary(),
+      ];
+      if (selectedMember?.id) refreshes.push(refreshSelectedMember(selectedMember.id));
+      Promise.all(refreshes).catch((error) => setMessage(error.message));
     }, 15000);
     return () => window.clearInterval(timer);
-  }, [token, applicationFilter, adminInfo?.role]);
+  }, [token, applicationFilter, memberFilter, selectedMember?.id, adminInfo?.role]);
 
   useEffect(() => {
     if (!adminInfo) return;

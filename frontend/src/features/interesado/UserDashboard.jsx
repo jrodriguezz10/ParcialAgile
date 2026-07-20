@@ -60,8 +60,9 @@ export function UserDashboard({ token, onLogout }) {
   const member = bundle?.member;
   const user = bundle?.user;
 
-  async function load() {
-    setLoading(true);
+  async function load(options = {}) {
+    const silent = Boolean(options.silent);
+    if (!silent) setLoading(true);
     try {
       clearStaleLocalFallback();
       const [me, paymentData] = await Promise.all([
@@ -88,13 +89,21 @@ export function UserDashboard({ token, onLogout }) {
       }
       setMessage(error.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
   useEffect(() => {
     load();
   }, [token]);
+
+  useEffect(() => {
+    if (!application?.id && !member?.id) return undefined;
+    const timer = window.setInterval(() => {
+      load({ silent: true }).catch(() => {});
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [token, application?.id, member?.id]);
 
   const updateForm = (field, value) => {
     if (field === "full_name") return;
