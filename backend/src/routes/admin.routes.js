@@ -12,6 +12,9 @@ router.get("/admin/me", auth("admin"), asyncHandler(controller.getMe));
 router.put("/admin/profile", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.updateProfile));
 router.get("/admin/admins", auth("admin"), adminRole("ADMIN_SEDE"), asyncHandler(controller.listAdmins));
 router.post("/admin/admins", auth("admin"), adminRole("ADMIN_SEDE"), asyncHandler(controller.createAdmin));
+router.put("/admin/admins/:id", auth("admin"), adminRole("ADMIN_SEDE"), asyncHandler(controller.updateAdminById));
+router.patch("/admin/admins/:id/disabled", auth("admin"), adminRole("ADMIN_SEDE"), asyncHandler(controller.setAdminDisabled));
+router.delete("/admin/admins/:id", auth("admin"), adminRole("ADMIN_SEDE"), asyncHandler(controller.deleteAdminById));
 router.get("/admin/users", auth("admin"), adminRole("ADMIN_SEDE", "CAJERO"), asyncHandler(controller.listUsers));
 
 // Registro directo de colegiados.

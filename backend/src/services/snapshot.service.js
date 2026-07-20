@@ -24,12 +24,86 @@ function findAdminByEmail(email) {
   return (snapshot?.admins || []).find((admin) => admin.email === email) || null;
 }
 
+function maxId(rows) {
+  return rows.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0);
+}
+
+function createAdmin(admin) {
+  const admins = snapshot?.admins || [];
+  const duplicate = admins.find(
+    (item) => String(item.email || "").toLowerCase() === String(admin.email || "").toLowerCase() || item.dni === admin.dni
+  );
+  if (duplicate) {
+    const error = new Error("Ese administrador ya existe.");
+    error.statusCode = 409;
+    throw error;
+  }
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  const row = {
+    id: maxId(admins) + 1,
+    name: admin.name,
+    dni: admin.dni,
+    email: admin.email,
+    phone: admin.phone || "",
+    role: admin.role || "Administrador",
+    branch: admin.branch || "Consejo Nacional - Lima",
+    password_hash: admin.password_hash,
+    disabled_at: null,
+    created_at: now,
+    updated_at: now,
+  };
+  admins.unshift(row);
+  return publicAdmin(row);
+}
+
 function updateAdminPassword(adminId, passwordHash) {
   const admin = (snapshot?.admins || []).find((item) => Number(item.id) === Number(adminId));
   if (!admin) return null;
   admin.password_hash = passwordHash;
   admin.updated_at = new Date().toISOString().slice(0, 19).replace("T", " ");
   return publicAdmin(admin);
+}
+
+function updateAdmin(adminId, updates) {
+  const admin = (snapshot?.admins || []).find((item) => Number(item.id) === Number(adminId));
+  if (!admin) return null;
+  const duplicate = (snapshot?.admins || []).find(
+    (item) =>
+      Number(item.id) !== Number(adminId) &&
+      (String(item.email || "").toLowerCase() === String(updates.email || "").toLowerCase() || item.dni === updates.dni)
+  );
+  if (duplicate) {
+    const error = new Error("Ese correo o DNI ya esta registrado.");
+    error.statusCode = 409;
+    throw error;
+  }
+  Object.assign(admin, {
+    name: updates.name,
+    dni: updates.dni,
+    email: updates.email,
+    phone: updates.phone || "",
+    role: updates.role || admin.role || "Administrador",
+    branch: updates.branch || admin.branch || "Consejo Nacional - Lima",
+    ...(updates.password_hash ? { password_hash: updates.password_hash } : {}),
+    updated_at: new Date().toISOString().slice(0, 19).replace("T", " "),
+  });
+  return publicAdmin(admin);
+}
+
+function setAdminDisabled(adminId, disabled) {
+  const admin = (snapshot?.admins || []).find((item) => Number(item.id) === Number(adminId));
+  if (!admin) return null;
+  admin.disabled_at = disabled ? new Date().toISOString().slice(0, 19).replace("T", " ") : null;
+  admin.updated_at = new Date().toISOString().slice(0, 19).replace("T", " ");
+  return publicAdmin(admin);
+}
+
+function deleteAdmin(adminId) {
+  const admins = snapshot?.admins || [];
+  const index = admins.findIndex((item) => Number(item.id) === Number(adminId));
+  if (index === -1) return false;
+  admins.splice(index, 1);
+  return true;
 }
 
 function getAdmin(id) {
@@ -133,7 +207,11 @@ function listMemberPayments(memberId) {
 module.exports = {
   available,
   findAdminByEmail,
+  createAdmin,
+  updateAdmin,
   updateAdminPassword,
+  setAdminDisabled,
+  deleteAdmin,
   getAdmin,
   listAdmins,
   listApplications,

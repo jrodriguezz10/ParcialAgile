@@ -49,6 +49,7 @@ export function AdminDashboard({ token, onLogout }) {
   const [manualPaymentMethods, setManualPaymentMethods] = useState(defaultPaymentMethods());
   const [adminForm, setAdminForm] = useState({ name: "", dni: "", email: "", phone: "", role: "ADMIN_SEDE", branch: "Consejo Nacional - Lima", password: "" });
   const [newAdmin, setNewAdmin] = useState({ name: "", dni: "", email: "", phone: "", role: "CAJERO", branch: "Consejo Nacional - Lima", password: "" });
+  const [editingAdminId, setEditingAdminId] = useState(null);
   const [manualMember, setManualMember] = useState(blankManualMember);
   const [manualFiles, setManualFiles] = useState({ photo: null, degreePdf: null, receipt: null });
   const [registrationPayment, setRegistrationPayment] = useState({ period_month: currentPeriod(), method: "EFECTIVO", methods: defaultPaymentMethods() });
@@ -259,25 +260,87 @@ export function AdminDashboard({ token, onLogout }) {
         branch: data.branch || "Consejo Nacional - Lima",
         password: "",
       });
-      await loadAdminUsers();
+      if (adminInfo?.role !== "CAJERO") await loadAdminUsers();
       setMessage("Configuración del administrador actualizada.");
     } catch (error) {
       setMessage(error.message);
     }
   }
 
-  async function createAdmin(event) {
+  async function saveAdminAccess(event) {
     event.preventDefault();
     setMessage("");
     try {
-      await api("/api/admin/admins", {
-        method: "POST",
+      await api(editingAdminId ? `/api/admin/admins/${editingAdminId}` : "/api/admin/admins", {
+        method: editingAdminId ? "PUT" : "POST",
         token,
-        body: { ...newAdmin, dni: onlyDniDigits(newAdmin.dni), phone: onlyPhoneDigits(newAdmin.phone) },
+        body: {
+          ...newAdmin,
+          dni: onlyDniDigits(newAdmin.dni),
+          phone: onlyPhoneDigits(newAdmin.phone),
+          branch: adminInfo?.branch === "Consejo Nacional - Lima" ? newAdmin.branch : adminInfo?.branch,
+        },
       });
+      const wasEditing = Boolean(editingAdminId);
+      setEditingAdminId(null);
       setNewAdmin({ name: "", dni: "", email: "", phone: "", role: "CAJERO", branch: adminInfo?.branch || "Consejo Nacional - Lima", password: "" });
       await loadAdminUsers();
-      setMessage("Nuevo administrador creado.");
+      setMessage(wasEditing ? "Usuario administrativo actualizado." : "Nuevo administrador creado.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  function startEditAdmin(admin) {
+    setEditingAdminId(admin.id);
+    setNewAdmin({
+      name: admin.name || "",
+      dni: admin.dni || "",
+      email: admin.email || "",
+      phone: admin.phone || "",
+      role: admin.role || "ADMIN_SEDE",
+      branch: admin.branch || adminInfo?.branch || "Consejo Nacional - Lima",
+      password: "",
+    });
+    setMessage("Editando acceso administrativo.");
+  }
+
+  function cancelEditAdmin() {
+    setEditingAdminId(null);
+    setNewAdmin({ name: "", dni: "", email: "", phone: "", role: "CAJERO", branch: adminInfo?.branch || "Consejo Nacional - Lima", password: "" });
+  }
+
+  async function toggleAdminDisabled(admin) {
+    if (Number(admin.id) === Number(adminInfo?.id)) {
+      setMessage("No puedes deshabilitar tu propia cuenta.");
+      return;
+    }
+    setMessage("");
+    try {
+      await api(`/api/admin/admins/${admin.id}/disabled`, {
+        method: "PATCH",
+        token,
+        body: { disabled: !admin.disabled_at },
+      });
+      await loadAdminUsers();
+      setMessage(admin.disabled_at ? "Usuario habilitado nuevamente." : "Usuario deshabilitado.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function deleteAdminAccess(admin) {
+    if (!admin.disabled_at) {
+      setMessage("Primero deshabilita el usuario antes de eliminarlo.");
+      return;
+    }
+    if (!window.confirm(`Eliminar definitivamente el acceso de ${admin.name}?`)) return;
+    setMessage("");
+    try {
+      await api(`/api/admin/admins/${admin.id}`, { method: "DELETE", token });
+      if (Number(editingAdminId) === Number(admin.id)) cancelEditAdmin();
+      await loadAdminUsers();
+      setMessage("Usuario eliminado.");
     } catch (error) {
       setMessage(error.message);
     }
@@ -495,7 +558,7 @@ export function AdminDashboard({ token, onLogout }) {
           detail={`${stats.pending} solicitudes pendientes`}
         />
       }
-      navItems={adminInfo?.role === "CAJERO" ? ADMIN_NAV_ITEMS.filter((item) => item.keyName === "padron") : ADMIN_NAV_ITEMS}
+      navItems={adminInfo?.role === "CAJERO" ? ADMIN_NAV_ITEMS.filter((item) => ["padron", "configuracion"].includes(item.keyName)) : ADMIN_NAV_ITEMS}
       summary={[
         { icon: ListChecks, label: "Solicitudes pendientes", value: pendingApplications.length },
       ]}
@@ -563,9 +626,11 @@ export function AdminDashboard({ token, onLogout }) {
       <AdminSettingsPanel
         activeModule={activeModule}
         admins={admins}
+        adminInfo={adminInfo}
         members={members}
         adminForm={adminForm}
         newAdmin={newAdmin}
+        editingAdminId={editingAdminId}
         adminLookupLoading={adminLookupLoading}
         newAdminLookupLoading={newAdminLookupLoading}
         onRefresh={loadAll}
@@ -573,7 +638,11 @@ export function AdminDashboard({ token, onLogout }) {
         onNewAdminChange={setNewAdmin}
         onLookupAdminDni={lookupAdminDni}
         onSaveProfile={saveAdminProfile}
-        onCreateAdmin={createAdmin}
+        onSaveAdminAccess={saveAdminAccess}
+        onEditAdmin={startEditAdmin}
+        onCancelEditAdmin={cancelEditAdmin}
+        onToggleAdminDisabled={toggleAdminDisabled}
+        onDeleteAdmin={deleteAdminAccess}
       />
     </DashboardShell>
   );

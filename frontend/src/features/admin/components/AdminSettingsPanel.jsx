@@ -1,5 +1,5 @@
-import { RefreshCw, Save, Search, UserPlus } from "lucide-react";
-import { Button, DataTable } from "../../../components/ui";
+import { Ban, CheckCircle2, Pencil, RefreshCw, Save, Search, Trash2, UserPlus, X } from "lucide-react";
+import { Button, DataTable, StatusBadge } from "../../../components/ui";
 import { formatDate } from "../../../utils/format";
 import { CIP_BRANCHES } from "../../../constants/catalogs";
 
@@ -7,8 +7,10 @@ import { CIP_BRANCHES } from "../../../constants/catalogs";
 export function AdminSettingsPanel({
   activeModule,
   admins,
+  adminInfo,
   adminForm,
   newAdmin,
+  editingAdminId,
   adminLookupLoading,
   newAdminLookupLoading,
   onRefresh,
@@ -16,8 +18,16 @@ export function AdminSettingsPanel({
   onNewAdminChange,
   onLookupAdminDni,
   onSaveProfile,
-  onCreateAdmin,
+  onSaveAdminAccess,
+  onEditAdmin,
+  onCancelEditAdmin,
+  onToggleAdminDisabled,
+  onDeleteAdmin,
 }) {
+  const canManageAccesses = adminInfo?.role !== "CAJERO";
+  const currentBranch = adminInfo?.branch || "Consejo Nacional - Lima";
+  const canChooseBranch = currentBranch === "Consejo Nacional - Lima";
+
   return (
     <section className={`panel ${activeModule === "configuracion" ? "" : "module-hidden"}`} id="admin-configuracion">
       <div className="section-title">
@@ -87,9 +97,9 @@ export function AdminSettingsPanel({
             </label>
             <label>
               Cargo
-              <select value={adminForm.role} onChange={(event) => onAdminFormChange((current) => ({ ...current, role: event.target.value }))}><option value="ADMIN_SEDE">Administrador de sede</option><option value="CAJERO">Cajero</option></select>
+              <select value={adminForm.role} onChange={(event) => onAdminFormChange((current) => ({ ...current, role: event.target.value }))} disabled={!canManageAccesses}><option value="ADMIN_SEDE">Administrador de sede</option><option value="CAJERO">Cajero</option></select>
             </label>
-            <label>Sede<select value={adminForm.branch} onChange={(event) => onAdminFormChange((current) => ({ ...current, branch: event.target.value }))}>{CIP_BRANCHES.map((branch) => <option key={branch}>{branch}</option>)}</select></label>
+            <label>Sede<select value={adminForm.branch} onChange={(event) => onAdminFormChange((current) => ({ ...current, branch: event.target.value }))} disabled={!canManageAccesses || !canChooseBranch}>{CIP_BRANCHES.map((branch) => <option key={branch}>{branch}</option>)}</select></label>
             <label className="wide">
               Nueva clave
               <input
@@ -103,12 +113,18 @@ export function AdminSettingsPanel({
           <Button icon={Save}>Guardar administrador</Button>
         </form>
 
-        <form className="settings-form" onSubmit={onCreateAdmin}>
+        {canManageAccesses && (
+        <form className="settings-form" onSubmit={onSaveAdminAccess}>
           <div className="section-title compact-title">
             <div>
-              <span>Nuevo acceso</span>
-              <h2>Crear administrador</h2>
+              <span>{editingAdminId ? "Editar acceso" : "Nuevo acceso"}</span>
+              <h2>{editingAdminId ? "Actualizar usuario" : "Crear administrador"}</h2>
             </div>
+            {editingAdminId && (
+              <button type="button" className="icon-btn" onClick={onCancelEditAdmin} aria-label="Cancelar edicion" title="Cancelar edicion">
+                <X size={18} />
+              </button>
+            )}
           </div>
           <div className="settings-grid">
             <label>
@@ -161,21 +177,33 @@ export function AdminSettingsPanel({
               Cargo
               <select value={newAdmin.role} onChange={(event) => onNewAdminChange((current) => ({ ...current, role: event.target.value }))}><option value="ADMIN_SEDE">Administrador de sede</option><option value="CAJERO">Cajero</option></select>
             </label>
-            <label>Sede<select value={newAdmin.branch} onChange={(event) => onNewAdminChange((current) => ({ ...current, branch: event.target.value }))}>{CIP_BRANCHES.map((branch) => <option key={branch}>{branch}</option>)}</select></label>
             <label>
-              Clave
+              Sede
+              <select
+                value={canChooseBranch ? newAdmin.branch : currentBranch}
+                onChange={(event) => onNewAdminChange((current) => ({ ...current, branch: event.target.value }))}
+                disabled={!canChooseBranch}
+              >
+                {CIP_BRANCHES.map((branch) => <option key={branch}>{branch}</option>)}
+              </select>
+            </label>
+            <label>
+              {editingAdminId ? "Nueva clave" : "Clave"}
               <input
                 type="password"
                 value={newAdmin.password}
                 onChange={(event) => onNewAdminChange((current) => ({ ...current, password: event.target.value }))}
-                required
+                placeholder={editingAdminId ? "Dejar vacio para no cambiar" : ""}
+                required={!editingAdminId}
               />
             </label>
           </div>
-          <Button icon={UserPlus}>Crear usuario admin</Button>
+          <Button icon={editingAdminId ? Save : UserPlus}>{editingAdminId ? "Guardar cambios" : "Crear usuario admin"}</Button>
         </form>
+        )}
       </div>
 
+      {canManageAccesses && (
       <div className="settings-form">
         <div className="section-title compact-title">
           <div>
@@ -184,7 +212,7 @@ export function AdminSettingsPanel({
           </div>
         </div>
         <DataTable
-          columns={["Nombre", "DNI", "Correo", "Telefono", "Cargo", "Sede", "Creado"]}
+          columns={["Nombre", "DNI", "Correo", "Telefono", "Cargo", "Sede", "Estado", "Creado", "Acciones"]}
           rows={admins.map((admin) => [
             admin.name,
             admin.dni || "Sin dato",
@@ -192,11 +220,38 @@ export function AdminSettingsPanel({
             admin.phone || "Sin dato",
             admin.role || "Administrador",
             admin.branch || "Consejo Nacional - Lima",
+            <StatusBadge status={admin.disabled_at ? "INHABILITADO" : "HABILITADO"} />,
             formatDate(admin.created_at),
+            <span className="admin-action-buttons">
+              <button type="button" className="inline-icon-action" onClick={() => onEditAdmin(admin)} title="Editar acceso" aria-label={`Editar ${admin.name}`}>
+                <Pencil size={16} />
+              </button>
+              <button
+                type="button"
+                className="inline-icon-action"
+                onClick={() => onToggleAdminDisabled(admin)}
+                disabled={Number(admin.id) === Number(adminInfo?.id)}
+                title={admin.disabled_at ? "Habilitar acceso" : "Deshabilitar acceso"}
+                aria-label={admin.disabled_at ? `Habilitar ${admin.name}` : `Deshabilitar ${admin.name}`}
+              >
+                {admin.disabled_at ? <CheckCircle2 size={16} /> : <Ban size={16} />}
+              </button>
+              <button
+                type="button"
+                className="inline-icon-action danger"
+                onClick={() => onDeleteAdmin(admin)}
+                disabled={!admin.disabled_at || Number(admin.id) === Number(adminInfo?.id)}
+                title={admin.disabled_at ? "Eliminar acceso" : "Primero deshabilita para eliminar"}
+                aria-label={`Eliminar ${admin.name}`}
+              >
+                <Trash2 size={16} />
+              </button>
+            </span>,
           ])}
           empty="No hay administradores registrados."
         />
       </div>
+      )}
     </section>
   );
 }

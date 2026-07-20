@@ -45,6 +45,9 @@ async function loginAdmin(req, res) {
   if (!admin || !(await bcrypt.compare(password, admin.password_hash))) {
     return res.status(401).json({ message: "Credenciales de administrador invalidas." });
   }
+  if (admin.disabled_at) {
+    return res.status(403).json({ message: "Esta cuenta administrativa esta deshabilitada." });
+  }
   res.json({
     token: signToken(admin, "admin"),
     role: "admin",

@@ -308,7 +308,7 @@
       "id": 30001,
       "user_id": 300001,
       "status": "APROBADO",
-      "photo_path": null,
+      "photo_path": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNDAiIGhlaWdodD0iMjg4IiB2aWV3Qm94PSIwIDAgMjQwIDI4OCI+PHJlY3Qgd2lkdGg9IjI0MCIgaGVpZ2h0PSIyODgiIGZpbGw9IiNmMWY1ZjkiLz48Y2lyY2xlIGN4PSIxMjAiIGN5PSI5MiIgcj0iNDIiIGZpbGw9IiNjYmQ1ZTEiLz48cGF0aCBkPSJNNDggMjQwYzEwLTQ5IDQ0LTc2IDcyLTc2czYyIDI3IDcyIDc2IiBmaWxsPSIjY2JkNWUxIi8+PHRleHQgeD0iMTIwIiB5PSIyNjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzlkMDcxNyI+Q0lQPC90ZXh0Pjwvc3ZnPg==",
       "degree_pdf_path": null,
       "receipt_path": null,
       "observations": "Registro presencial creado por administrador.",

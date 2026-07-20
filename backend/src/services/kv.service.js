@@ -243,6 +243,27 @@ async function updateAdminPassword(id, passwordHash) {
   return safe;
 }
 
+async function setAdminDisabled(id, disabled) {
+  const admins = await getCollection("admins");
+  const index = admins.findIndex((item) => Number(item.id) === Number(id));
+  if (index === -1) return null;
+  admins[index] = {
+    ...admins[index],
+    disabled_at: disabled ? new Date().toISOString().slice(0, 19).replace("T", " ") : null,
+    updated_at: new Date().toISOString().slice(0, 19).replace("T", " "),
+  };
+  await setCollection("admins", admins);
+  const { password_hash, ...safe } = admins[index];
+  return safe;
+}
+
+async function deleteAdmin(id) {
+  const admins = await getCollection("admins");
+  const nextAdmins = admins.filter((item) => Number(item.id) !== Number(id));
+  await setCollection("admins", nextAdmins);
+  return admins.length !== nextAdmins.length;
+}
+
 async function listUsers(query = "") {
   const users = (await getCollection("users")).map(cleanUser);
   const normalized = String(query || "").trim().toLowerCase();
@@ -632,6 +653,8 @@ module.exports = {
   createAdmin,
   updateAdmin,
   updateAdminPassword,
+  setAdminDisabled,
+  deleteAdmin,
   listUsers,
   listApplications,
   listKvApplications: listApplications,

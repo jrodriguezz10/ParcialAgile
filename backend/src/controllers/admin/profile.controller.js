@@ -17,6 +17,29 @@ function scopedRole(req, requestedRole) {
   return req.admin?.role === "CAJERO" ? "CAJERO" : requestedRole;
 }
 
+function canManageAdmin(req, admin) {
+  if (!admin) return false;
+  const adminBranch = req.admin?.branch || "Consejo Nacional - Lima";
+  if (adminBranch === "Consejo Nacional - Lima") return true;
+  return (admin.branch || "Consejo Nacional - Lima") === adminBranch;
+}
+
+function normalizeAdminBody(req, requirePassword = false) {
+  const name = String(req.body.name || "").trim();
+  const dni = String(req.body.dni || "").replace(/\D/g, "").slice(0, 8);
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
+  const role = String(req.body.role || "Administrador").trim();
+  const branch = scopedBranch(req, String(req.body.branch || "Consejo Nacional - Lima").trim());
+  const password = String(req.body.password || "");
+
+  if (!name || dni.length !== 8 || !email || phone.length !== 9 || !role || (requirePassword && !password)) {
+    return { error: "Nombre, DNI, correo, telefono, cargo y clave son requeridos." };
+  }
+  if (password && password.length < 6) return { error: "La clave debe tener al menos 6 caracteres." };
+  return { name, dni, email, phone, role, branch, password };
+}
+
 // Perfil administrador: cuenta actual y gestion de otros accesos admin.
 async function getMe(req, res) {
   if (req.dbReady === false && snapshot.available()) {
@@ -29,7 +52,7 @@ async function getMe(req, res) {
   }
 
   const [[admin]] = await getPool().query(
-    "SELECT id, name, dni, email, phone, role, branch, created_at, updated_at FROM admins WHERE id = ?",
+    "SELECT id, name, dni, email, phone, role, branch, disabled_at, created_at, updated_at FROM admins WHERE id = ?",
     [req.auth.sub]
   );
   if (!admin) return res.status(404).json({ message: "Administrador no encontrado." });
@@ -57,6 +80,12 @@ async function updateProfile(req, res) {
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     const hash = password ? await bcrypt.hash(password, 10) : null;
     const admin = await dataStore().updateAdmin(req.auth.sub, { name, dni, email, phone, role, branch, password_hash: hash });
+    if (!admin) return res.status(404).json({ message: "Administrador no encontrado." });
+    return res.json(admin);
+  }
+  if (req.dbReady === false && snapshot.available()) {
+    const hash = password ? await bcrypt.hash(password, 10) : null;
+    const admin = snapshot.updateAdmin(req.auth.sub, { name, dni, email, phone, role, branch, password_hash: hash });
     if (!admin) return res.status(404).json({ message: "Administrador no encontrado." });
     return res.json(admin);
   }
@@ -88,7 +117,7 @@ async function updateProfile(req, res) {
   }
 
   const [[admin]] = await pool.query(
-    "SELECT id, name, dni, email, phone, role, branch, created_at, updated_at FROM admins WHERE id = ?",
+    "SELECT id, name, dni, email, phone, role, branch, disabled_at, created_at, updated_at FROM admins WHERE id = ?",
     [req.auth.sub]
   );
   res.json(admin);
@@ -100,30 +129,23 @@ async function listAdmins(req, res) {
   if (req.dbReady === false && snapshot.available()) return res.json(snapshot.listAdmins().filter(visibleToAdmin));
 
   const [rows] = await getPool().query(
-    "SELECT id, name, dni, email, phone, role, branch, created_at, updated_at FROM admins ORDER BY created_at DESC"
+    "SELECT id, name, dni, email, phone, role, branch, disabled_at, created_at, updated_at FROM admins ORDER BY created_at DESC"
   );
   res.json(rows.filter(visibleToAdmin));
 }
 
 async function createAdmin(req, res) {
-  const name = String(req.body.name || "").trim();
-  const dni = String(req.body.dni || "").replace(/\D/g, "").slice(0, 8);
-  const email = String(req.body.email || "").trim().toLowerCase();
-  const phone = String(req.body.phone || "").replace(/\D/g, "").slice(0, 9);
-  const role = String(req.body.role || "Administrador").trim();
-  const branch = scopedBranch(req, String(req.body.branch || "Consejo Nacional - Lima").trim());
-  const password = String(req.body.password || "");
-
-  if (!name || dni.length !== 8 || !email || phone.length !== 9 || !role || !password) {
-    return res.status(422).json({ message: "Nombre, DNI, correo, telefono, cargo y clave son requeridos." });
-  }
-  if (password.length < 6) {
-    return res.status(422).json({ message: "La clave debe tener al menos 6 caracteres." });
-  }
+  const body = normalizeAdminBody(req, true);
+  if (body.error) return res.status(422).json({ message: body.error });
+  const { name, dni, email, phone, role, branch, password } = body;
 
   const hash = await bcrypt.hash(password, 10);
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     const admin = await dataStore().createAdmin({ name, dni, email, phone, role, branch, password_hash: hash });
+    return res.status(201).json(admin);
+  }
+  if (req.dbReady === false && snapshot.available()) {
+    const admin = snapshot.createAdmin({ name, dni, email, phone, role, branch, password_hash: hash });
     return res.status(201).json(admin);
   }
 
@@ -134,7 +156,7 @@ async function createAdmin(req, res) {
       [name, dni, email, phone, role, branch, hash]
     );
     const [[admin]] = await pool.query(
-      "SELECT id, name, dni, email, phone, role, branch, created_at, updated_at FROM admins WHERE id = ?",
+      "SELECT id, name, dni, email, phone, role, branch, disabled_at, created_at, updated_at FROM admins WHERE id = ?",
       [result.insertId]
     );
     res.status(201).json(admin);
@@ -144,9 +166,101 @@ async function createAdmin(req, res) {
   }
 }
 
+async function readAdminForManagement(req, id) {
+  if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) return dataStore().getAdmin(id);
+  if (req.dbReady === false && snapshot.available()) return snapshot.getAdmin(id);
+  const [[admin]] = await getPool().query(
+    "SELECT id, name, dni, email, phone, role, branch, disabled_at, created_at, updated_at FROM admins WHERE id = ?",
+    [id]
+  );
+  return admin || null;
+}
+
+async function updateAdminById(req, res) {
+  const target = await readAdminForManagement(req, req.params.id);
+  if (!canManageAdmin(req, target)) return res.status(404).json({ message: "Usuario no encontrado en tu sede." });
+
+  const body = normalizeAdminBody(req, false);
+  if (body.error) return res.status(422).json({ message: body.error });
+  const hash = body.password ? await bcrypt.hash(body.password, 10) : null;
+  const payload = { ...body, password_hash: hash };
+  delete payload.password;
+
+  if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
+    return res.json(await dataStore().updateAdmin(target.id, payload));
+  }
+  if (req.dbReady === false && snapshot.available()) {
+    const admin = snapshot.updateAdmin(target.id, payload);
+    if (!admin) return res.status(404).json({ message: "Administrador no encontrado." });
+    return res.json(admin);
+  }
+
+  const pool = getPool();
+  try {
+    if (hash) {
+      await pool.query(
+        "UPDATE admins SET name = ?, dni = ?, email = ?, phone = ?, role = ?, branch = ?, password_hash = ? WHERE id = ?",
+        [payload.name, payload.dni, payload.email, payload.phone, payload.role, payload.branch, hash, target.id]
+      );
+    } else {
+      await pool.query("UPDATE admins SET name = ?, dni = ?, email = ?, phone = ?, role = ?, branch = ? WHERE id = ?", [
+        payload.name,
+        payload.dni,
+        payload.email,
+        payload.phone,
+        payload.role,
+        payload.branch,
+        target.id,
+      ]);
+    }
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") return res.status(409).json({ message: "Ese correo o DNI ya esta registrado." });
+    throw error;
+  }
+  res.json(await readAdminForManagement(req, target.id));
+}
+
+async function setAdminDisabled(req, res) {
+  const target = await readAdminForManagement(req, req.params.id);
+  if (!canManageAdmin(req, target)) return res.status(404).json({ message: "Usuario no encontrado en tu sede." });
+  if (Number(target.id) === Number(req.auth.sub)) return res.status(422).json({ message: "No puedes deshabilitar tu propia cuenta." });
+  const disabled = Boolean(req.body.disabled);
+
+  if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) return res.json(await dataStore().setAdminDisabled(target.id, disabled));
+  if (req.dbReady === false && snapshot.available()) return res.json(snapshot.setAdminDisabled(target.id, disabled));
+
+  await getPool().query("UPDATE admins SET disabled_at = ? WHERE id = ?", [
+    disabled ? new Date().toISOString().slice(0, 19).replace("T", " ") : null,
+    target.id,
+  ]);
+  res.json(await readAdminForManagement(req, target.id));
+}
+
+async function deleteAdminById(req, res) {
+  const target = await readAdminForManagement(req, req.params.id);
+  if (!canManageAdmin(req, target)) return res.status(404).json({ message: "Usuario no encontrado en tu sede." });
+  if (Number(target.id) === Number(req.auth.sub)) return res.status(422).json({ message: "No puedes eliminar tu propia cuenta." });
+  if (!target.disabled_at) return res.status(422).json({ message: "Primero deshabilita el usuario antes de eliminarlo." });
+
+  if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
+    await dataStore().deleteAdmin(target.id);
+    return res.json({ ok: true });
+  }
+  if (req.dbReady === false && snapshot.available()) {
+    snapshot.deleteAdmin(target.id);
+    return res.json({ ok: true });
+  }
+
+  await getPool().query("DELETE FROM admins WHERE id = ?", [target.id]);
+  res.json({ ok: true });
+}
+
 module.exports = {
   getMe,
   updateProfile,
   listAdmins,
   createAdmin,
+  updateAdminById,
+  setAdminDisabled,
+  deleteAdminById,
 };

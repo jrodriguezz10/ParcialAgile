@@ -1017,6 +1017,38 @@
   gap: 8px;
 }
 
+.admin-action-buttons {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.inline-icon-action {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--red-800);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inline-icon-action:hover:not(:disabled) {
+  background: #fff5f5;
+  transform: translateY(-1px);
+}
+
+.inline-icon-action.danger {
+  color: var(--danger);
+}
+
+.inline-icon-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .member-card-preview {
   margin-top: 18px;
   border-top: 1px solid var(--line);
