@@ -3,7 +3,7 @@ import { VirtualCard } from "../../../components/VirtualCard";
 import { Button, StatusBadge } from "../../../components/ui";
 import { downloadPaymentReceiptPdf } from "../../../utils/pdf";
 import { CareerField } from "../../../components/CareerField";
-import { CIP_BRANCHES } from "../../../constants/catalogs";
+import { CIP_BRANCHES, isValidEngineeringCareer } from "../../../constants/catalogs";
 
 // Modulo Registro: alta manual de colegiados y previsualizacion del carnet.
 export function AdminRegisterPanel({
@@ -23,6 +23,7 @@ export function AdminRegisterPanel({
   const registrationPaymentTotal = (registrationPayment.methods || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const registrationPaymentStatus = getPaymentStatus(registrationPayment.methods, 2);
   const registrationPaymentMatches = registrationPayment.method === "MERCADO_PAGO" || registrationPaymentStatus.canSubmit;
+  const professionValid = isValidEngineeringCareer(manualMember.profession);
 
   return (
     <section className={`panel ${activeModule === "registro" ? "" : "module-hidden"}`} id="admin-registro">
@@ -185,7 +186,7 @@ export function AdminRegisterPanel({
               </div>
             )}
           </div>
-          <Button icon={CreditCard} disabled={!registrationPaymentMatches}>
+          <Button icon={CreditCard} disabled={!registrationPaymentMatches || !professionValid}>
             {registrationPayment.method === "MERCADO_PAGO" ? "Registrar y abrir Mercado Pago" : "Registrar pago y generar carnet"}
           </Button>
         </form>

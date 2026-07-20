@@ -2,6 +2,7 @@ import { BadgeCheck, ClipboardCheck, ShieldCheck, WalletCards } from "lucide-rea
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DashboardShell, TopBar } from "../../components/layout";
 import { ProfileCard } from "../../components/ui";
+import { isValidEngineeringCareer } from "../../constants/catalogs";
 import { APP_STATUS, MEMBER_STATUS, blankProfile } from "../../constants/status";
 import { api } from "../../lib/api";
 import { currentPeriod } from "../../utils/format";
@@ -98,6 +99,10 @@ export function UserDashboard({ token, onLogout }) {
     }
     if (!String(form.full_name || "").trim() || !String(form.profession || "").trim()) {
       setMessage("Completa nombres y profesion antes de enviar.");
+      return;
+    }
+    if (!isValidEngineeringCareer(form.profession)) {
+      setMessage("Selecciona una profesion valida de la lista.");
       return;
     }
     if (!isValidEmail(form.email)) {

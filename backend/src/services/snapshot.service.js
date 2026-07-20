@@ -147,6 +147,92 @@ function listUsers(query = "") {
     .slice(0, 200);
 }
 
+function createPublicApplication({ body, files }) {
+  const users = snapshot?.users || [];
+  const applications = snapshot?.applications || [];
+  const existing = applications.find((item) => item.dni === body.dni || String(item.user_id) === String(body.user_id));
+  if (existing && !["OBSERVADO", "RECHAZADO"].includes(existing.status)) {
+    const error = new Error(`Este DNI ya tiene una solicitud registrada con estado ${existing.status}.`);
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  let user = users.find((item) => item.dni === body.dni || String(item.id) === String(body.user_id));
+  if (!user) {
+    user = {
+      id: Number(body.user_id) || maxId(users) + 1,
+      dni: body.dni,
+      full_name: body.full_name,
+      first_name: body.first_name || null,
+      paternal_last_name: body.paternal_last_name || null,
+      maternal_last_name: body.maternal_last_name || null,
+      email: body.email,
+      phone: body.phone || null,
+      address: null,
+      profession: body.profession,
+      branch: body.branch || "Consejo Nacional - Lima",
+      created_at: now,
+      updated_at: now,
+    };
+    users.unshift(user);
+  } else {
+    user.dni = body.dni;
+    user.full_name = body.full_name;
+    user.first_name = body.first_name || user.first_name || null;
+    user.paternal_last_name = body.paternal_last_name || user.paternal_last_name || null;
+    user.maternal_last_name = body.maternal_last_name || user.maternal_last_name || null;
+    user.email = body.email;
+    user.phone = body.phone || user.phone || null;
+    user.profession = body.profession;
+    user.branch = body.branch || user.branch || "Consejo Nacional - Lima";
+    user.updated_at = now;
+  }
+
+  if (existing) {
+    Object.assign(existing, {
+      status: "PENDIENTE",
+      photo_path: files.photo,
+      degree_pdf_path: files.degreePdf,
+      receipt_path: files.receipt,
+      observations: null,
+      submitted_at: now,
+      reviewed_at: null,
+      reviewed_by: null,
+      updated_at: now,
+      user_id: user.id,
+      dni: user.dni,
+      full_name: user.full_name,
+      email: user.email,
+      profession: user.profession,
+      branch: user.branch || "Consejo Nacional - Lima",
+    });
+    return { user, application: existing };
+  }
+
+  const application = {
+    id: maxId(applications) + 1,
+    user_id: user.id,
+    status: "PENDIENTE",
+    photo_path: files.photo,
+    degree_pdf_path: files.degreePdf,
+    receipt_path: files.receipt,
+    observations: null,
+    submitted_at: now,
+    reviewed_at: null,
+    reviewed_by: null,
+    created_at: now,
+    updated_at: now,
+    dni: user.dni,
+    full_name: user.full_name,
+    email: user.email,
+    profession: user.profession,
+    branch: user.branch || "Consejo Nacional - Lima",
+  };
+  applications.unshift(application);
+  return { user, application };
+}
+
 function listApplications(status = "") {
   const normalized = status.toUpperCase();
   const users = snapshot?.users || [];
@@ -214,6 +300,7 @@ module.exports = {
   deleteAdmin,
   getAdmin,
   listAdmins,
+  createPublicApplication,
   listApplications,
   getApplication,
   listMembers,

@@ -2,6 +2,7 @@ import { Banknote, Eye, ListChecks, Settings, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DashboardShell } from "../../components/layout";
 import { ProfileCard } from "../../components/ui";
+import { isValidEngineeringCareer } from "../../constants/catalogs";
 import { api } from "../../lib/api";
 import { currentPeriod } from "../../utils/format";
 import { AdminRegisterPanel } from "./components/AdminRegisterPanel";
@@ -337,7 +338,7 @@ export function AdminDashboard({ token, onLogout }) {
     if (!window.confirm(`Eliminar definitivamente el acceso de ${admin.name}?`)) return;
     setMessage("");
     try {
-      await api(`/api/admin/admins/${admin.id}`, { method: "DELETE", token });
+      await api(`/api/admin/admins/${admin.id}`, { method: "DELETE", token, body: { confirmed_disabled: true } });
       if (Number(editingAdminId) === Number(admin.id)) cancelEditAdmin();
       await loadAdminUsers();
       setMessage("Usuario eliminado.");
@@ -396,6 +397,10 @@ export function AdminDashboard({ token, onLogout }) {
   async function createManualMember(event) {
     event.preventDefault();
     setMessage("");
+    if (!isValidEngineeringCareer(manualMember.profession)) {
+      setMessage("Selecciona una profesion valida de la lista.");
+      return;
+    }
     const payload = createManualMemberPayload(
       { ...manualMember, dni: onlyDniDigits(manualMember.dni) },
       manualFiles,

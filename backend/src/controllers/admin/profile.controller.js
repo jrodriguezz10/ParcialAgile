@@ -240,7 +240,9 @@ async function deleteAdminById(req, res) {
   const target = await readAdminForManagement(req, req.params.id);
   if (!canManageAdmin(req, target)) return res.status(404).json({ message: "Usuario no encontrado en tu sede." });
   if (Number(target.id) === Number(req.auth.sub)) return res.status(422).json({ message: "No puedes eliminar tu propia cuenta." });
-  if (!target.disabled_at) return res.status(422).json({ message: "Primero deshabilita el usuario antes de eliminarlo." });
+  if (!target.disabled_at && !req.body?.confirmed_disabled) {
+    return res.status(422).json({ message: "Primero deshabilita el usuario antes de eliminarlo." });
+  }
 
   if (req.dbReady === false && (kv.enabled() || pgStore.enabled())) {
     await dataStore().deleteAdmin(target.id);

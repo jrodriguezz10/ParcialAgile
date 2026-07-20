@@ -1,5 +1,6 @@
 const { getPool } = require("../../config/database");
 const { createManualMemberRecord } = require("../../services/admin-members.service");
+const { isValidEngineeringCareer } = require("../../constants/catalogs");
 const { refreshAllMemberStatuses, refreshMemberStatus } = require("../../services/members.service");
 const { createExternalReference, createMercadoPagoPreference } = require("../../services/payments.service");
 const { currentPeriod, effectiveEnrollmentPeriod, isValidPeriod, periodsBetween, previousPeriod } = require("../../utils/dates");
@@ -175,6 +176,7 @@ async function createKvManualMember(req) {
   if (dni.length !== 8) throw validationError("DNI invalido.");
   if (!fullName) throw validationError("Consulta el DNI para completar los nombres.");
   if (!profession) throw validationError("Completa la profesion.");
+  if (!isValidEngineeringCareer(profession)) throw validationError("Selecciona una profesion valida de la lista.");
   if (!isValidEmail(email)) throw validationError("Correo invalido.");
   if (phone && !/^9\d{8}$/.test(phone)) throw validationError("Ingresa un celular valido de 9 digitos.");
   if (!files.degreePdf) throw validationError("Sube el PDF del titulo profesional.");

@@ -4,6 +4,9 @@ const { currentPeriod } = require("../utils/dates");
 const { fileDataUrl, fileUrl, shouldStoreUploadsInDatabase, storedPath } = require("../utils/files");
 const { isValidEmail, normalizeDni } = require("../utils/text");
 const { consultDniApi } = require("../services/reniec.service");
+const { isValidEngineeringCareer } = require("../constants/catalogs");
+const { applicationPresenter } = require("../utils/presenters");
+const snapshot = require("../services/snapshot.service");
 const kv = require("../services/kv.service");
 const pgStore = require("../services/postgres-store.service");
 
@@ -64,6 +67,25 @@ async function getMe(req, res) {
         : null;
       return res.json({ user, application: presentedApplication, member: presentedMember, current_period: currentPeriod() });
     }
+    if (req.dbReady === false && snapshot.available()) {
+      const users = snapshot.listUsers("");
+      const user = users.find((item) => String(item.id) === String(req.auth.sub) || item.dni === req.auth.dni) || {
+        id: req.auth.sub,
+        dni: req.auth.dni,
+        full_name: req.auth.name || "",
+        email: req.auth.email || "",
+        profession: "",
+      };
+      const application = snapshot
+        .listApplications("TODOS")
+        .find((item) => String(item.user_id) === String(user.id) || item.dni === user.dni) || null;
+      const member = application?.status === "APROBADO"
+        ? snapshot.listMembers("TODOS").find((item) => String(item.user_id) === String(user.id) || item.dni === user.dni) || null
+        : null;
+      const presentedApplication = application ? applicationPresenter(req, application) : null;
+      const presentedMember = member ? { ...member, photo_url: presentedApplication?.photo_url || fileUrl(req, member.photo_path) } : null;
+      return res.json({ user, application: presentedApplication, member: presentedMember, current_period: currentPeriod() });
+    }
     const bundle = await getUserBundle(req.auth.sub, req);
     if (!bundle) return res.status(404).json({ message: "Usuario no encontrado." });
     res.json(bundle);
@@ -95,6 +117,9 @@ async function updateProfile(req, res) {
 
   if (!fullName || !email || !profession) {
     return res.status(422).json({ message: "Completa nombres, correo y profesion." });
+  }
+  if (!isValidEngineeringCareer(profession)) {
+    return res.status(422).json({ message: "Selecciona una profesion valida de la lista." });
   }
   if (phone && !/^9\d{8}$/.test(phone)) {
     return res.status(422).json({ message: "Si ingresas celular, debe tener 9 digitos." });
@@ -180,30 +205,44 @@ async function submitApplication(req, res) {
     });
   }
 
+  if (req.dbReady === false && snapshot.available()) {
+    const photoPath = fileDataUrl(req.files?.photo?.[0]);
+    const degreePdfPath = fileDataUrl(req.files?.degreePdf?.[0]);
+    const receiptPath = fileDataUrl(req.files?.receipt?.[0]);
+    if (!photoPath || !degreePdfPath || !receiptPath) {
+      return res.status(422).json({
+        message: "Debes adjuntar foto, titulo profesional en PDF y recibo de inscripcion.",
+      });
+    }
+    const { user, application } = snapshot.createPublicApplication({
+      body: {
+        user_id: req.auth.sub,
+        dni,
+        full_name: fullName,
+        first_name: identity.first_name,
+        paternal_last_name: identity.paternal_last_name,
+        maternal_last_name: identity.maternal_last_name,
+        email,
+        phone,
+        profession,
+        branch,
+      },
+      files: { photo: photoPath, degreePdf: degreePdfPath, receipt: receiptPath },
+    });
+    return res.status(201).json({
+      user,
+      application: applicationPresenter(req, application),
+      member: null,
+      current_period: currentPeriod(),
+    });
+  }
+
   let pool;
   try {
     pool = getPool();
   } catch (error) {
     console.warn("Solicitud temporal sin base de datos disponible:", error.message);
-    return res.status(201).json({
-      user: {
-        id: req.auth.sub,
-        dni,
-        full_name: fullName,
-        email,
-        profession,
-      },
-      application: {
-        id: null,
-        status: "PENDIENTE",
-        observations: null,
-        photo_url: null,
-        degree_pdf_url: null,
-        receipt_url: null,
-      },
-      member: null,
-      current_period: currentPeriod(),
-    });
+    return res.status(503).json({ message: "No hay almacenamiento activo para guardar la solicitud y sus fotos. Configura base de datos o KV." });
   }
 
   let existingApplication = null;
@@ -213,25 +252,7 @@ async function submitApplication(req, res) {
     ]);
   } catch (error) {
     console.warn("Solicitud temporal por error de base de datos:", error.message);
-    return res.status(201).json({
-      user: {
-        id: req.auth.sub,
-        dni,
-        full_name: fullName,
-        email,
-        profession,
-      },
-      application: {
-        id: null,
-        status: "PENDIENTE",
-        observations: null,
-        photo_url: null,
-        degree_pdf_url: null,
-        receipt_url: null,
-      },
-      member: null,
-      current_period: currentPeriod(),
-    });
+    return res.status(503).json({ message: "No se pudo guardar la solicitud ni sus fotos. Revisa la base de datos o KV." });
   }
 
   if (existingApplication?.status === "APROBADO") {

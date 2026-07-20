@@ -7,6 +7,7 @@ const { isValidEmail, normalizeDni } = require("../utils/text");
 const { signToken } = require("../middleware/auth");
 const kv = require("../services/kv.service");
 const pgStore = require("../services/postgres-store.service");
+const snapshot = require("../services/snapshot.service");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
@@ -128,6 +129,22 @@ async function getApplicationFile(req, res) {
 
   if (kv.enabled() || pgStore.enabled()) {
     const value = await (kv.enabled() ? kv : pgStore).getApplicationFile(req.params.id, req.params.type);
+    if (!value) return res.status(404).json({ message: "Archivo no encontrado." });
+    if (/^data:/i.test(value)) {
+      const match = value.match(/^data:([^;]+);base64,(.*)$/);
+      if (!match) return res.status(422).json({ message: "Archivo invalido." });
+      const [, mime, base64] = match;
+      res.setHeader("Content-Type", mime);
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      return res.end(Buffer.from(base64, "base64"));
+    }
+    return res.redirect(fileUrl(req, value));
+  }
+  if (snapshot.available()) {
+    const columns = { photo: "photo_path", degree: "degree_pdf_path", receipt: "receipt_path" };
+    const column = columns[req.params.type];
+    const application = snapshot.getApplication(req.params.id);
+    const value = column ? application?.[column] : null;
     if (!value) return res.status(404).json({ message: "Archivo no encontrado." });
     if (/^data:/i.test(value)) {
       const match = value.match(/^data:([^;]+);base64,(.*)$/);

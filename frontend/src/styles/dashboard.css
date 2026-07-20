@@ -884,6 +884,10 @@
 .career-options button { border: 0; background: transparent; text-align: left; padding: 9px 10px; border-radius: 7px; cursor: pointer; }
 .career-options button:hover { background: #f4e8e9; color: #9d0717; }
 .career-options span { padding: 10px; color: #687386; }
+.career-search .invalid-field {
+  border-color: #e11d48;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.12);
+}
 .settings-layout,
 .admin-config-grid {
   display: grid;

@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const { currentPeriod, isValidPeriod, todayDate } = require("../utils/dates");
 const { fileDataUrl, fileUrl, frontendUrl, shouldStoreUploadsInDatabase, storedPath } = require("../utils/files");
 const { isValidEmail, normalizeDni } = require("../utils/text");
+const { isValidEngineeringCareer } = require("../constants/catalogs");
 const { createMemberForApprovedApplication, refreshMemberStatus } = require("./members.service");
 const { createExternalReference, createMercadoPagoPreference } = require("./payments.service");
 const { consultDniApi } = require("./reniec.service");
@@ -128,6 +129,7 @@ async function createManualMemberRecord({ pool, body, files, adminId, adminBranc
 
   if (dni.length !== 8) throw validationError("DNI invalido.");
   if (!profession) throw validationError("Completa la profesion.");
+  if (!isValidEngineeringCareer(profession)) throw validationError("Selecciona una profesion valida de la lista.");
   if (phone && !/^\d{9}$/.test(phone)) throw validationError("El telefono debe tener 9 digitos.");
   if (!isValidEmail(email)) throw validationError("Correo invalido.");
   if (body.password && password.length < 6) throw validationError("La clave debe tener al menos 6 caracteres.");

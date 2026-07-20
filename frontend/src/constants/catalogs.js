@@ -13,3 +13,8 @@ export const CIP_BRANCHES = [
   "Junin", "La Libertad", "Lambayeque", "Lima", "Loreto", "Madre de Dios", "Moquegua", "Pasco", "Piura",
   "Puno", "San Martin - Moyobamba", "San Martin - Tarapoto", "Tacna", "Tumbes", "Ucayali",
 ];
+
+export function isValidEngineeringCareer(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return ENGINEERING_CAREERS.some((career) => career.toLowerCase() === normalized);
+}

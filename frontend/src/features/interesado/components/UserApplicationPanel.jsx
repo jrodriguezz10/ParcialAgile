@@ -1,7 +1,7 @@
 import { AlertTriangle, Camera, FileText, ReceiptText, Upload } from "lucide-react";
 import { Button, FileInput, StatusBadge } from "../../../components/ui";
 import { CareerField } from "../../../components/CareerField";
-import { CIP_BRANCHES } from "../../../constants/catalogs";
+import { CIP_BRANCHES, isValidEngineeringCareer } from "../../../constants/catalogs";
 
 // Modulo Solicitud: datos personales, consulta DNI y carga de documentos.
 export function UserApplicationPanel({
@@ -29,7 +29,7 @@ export function UserApplicationPanel({
     form.dni &&
       form.full_name?.trim() &&
       form.email?.trim() &&
-      form.profession?.trim() &&
+      isValidEngineeringCareer(form.profession) &&
       form.branch
   );
   const hasRequiredFiles = Boolean(

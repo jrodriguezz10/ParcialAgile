@@ -23,7 +23,7 @@ async function listApplications(req, res) {
     if (kv.enabled() || pgStore.enabled()) return res.json((await store().listApplications(status)).filter((row) => inAdminBranch(req, row)).map((row) => applicationPresenter(req, row)));
     const rows = snapshot.listApplications(status);
     const kvRows = kv.enabled() ? await kv.listKvApplications(status) : [];
-    return res.json([...kvRows, ...rows].map((row) => applicationPresenter(req, row)));
+    return res.json([...kvRows, ...rows].filter((row) => inAdminBranch(req, row)).map((row) => applicationPresenter(req, row)));
   }
 
   const params = [];
